@@ -1,5 +1,11 @@
 #include <stdint.h>
 
+struct __attribute__((packed)) start_stream {
+    uint8_t ip[4];
+    uint16_t port;
+    uint16_t rate;
+};
+
 struct __attribute__((packed)) move_robot_velocity {
     int16_t vel_x;
     int16_t vel_y;
@@ -46,3 +52,14 @@ struct __attribute__((packed)) misc_package {
     uint16_t my;
     uint16_t mz;
 };
+
+struct protocol_state {
+    uint8_t state;
+    uint8_t payload_buf[32];
+    uint16_t expected_len;
+    uint16_t current_len;
+    uint8_t id;
+
+};
+
+void protocol_parse_byte(struct protocol_state *state, uint8_t byte);

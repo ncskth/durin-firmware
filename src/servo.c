@@ -1,5 +1,6 @@
 #include <driver/uart.h>
 #include <math.h>
+#include <esp_timer.h>
 
 #include "servo.h"
 
@@ -50,6 +51,14 @@ void update_servo(struct pt *pt) {
     static float speed3;
     static float speed4;
     while(1) {
+        if (esp_timer_get_time() - durin.info.last_message_received > 5*1000*1000) {
+            durin.control.control_mode = DURIN_MOTOR_VELOCITY;
+            durin.control.motor_velocity.motor_1 = 0;
+            durin.control.motor_velocity.motor_2 = 0;
+            durin.control.motor_velocity.motor_3 = 0;
+            durin.control.motor_velocity.motor_4 = 0;   
+        }
+
         if (durin.control.control_mode == DURIN_ROBOT_VELOCITY) {
             float x = durin.control.robot_velocity.velocity_x;
             float y = durin.control.robot_velocity.velocity_y;

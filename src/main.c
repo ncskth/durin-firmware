@@ -111,7 +111,6 @@ void core1_task(void* arg) {
     // servo
     init_servo();
 
-
     init_imu();
 
     // init TOF
@@ -123,15 +122,8 @@ void core1_task(void* arg) {
     // wifi
     init_wifi();    
 
-    for (uint8_t i = 0; i < 0b01111111; i++) {
-        nbe_i2c_start_write(&durin.hw.i2c_tof, i, NULL, NULL);
-        nbe_i2c_stop(&durin.hw.i2c_tof);
-        nbe_i2c_commit(&durin.hw.i2c_tof);
-        //printf("testing %d\n", i);
-        while(nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
-    }
+    printf("init done\n");
 
-    durin.info.init_finished = 1;
 
     while (1) {
         //icm20948_start_read_all(&icm);

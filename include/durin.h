@@ -24,16 +24,16 @@ struct durin_control {
     enum control_mode control_mode;
     union {
         struct {
-            float velocity_x;
-            float velocity_y;
-            float rotation_cw;
+            int16_t velocity_x;
+            int16_t velocity_y;
+            int16_t rotation_cw;
         } robot_velocity;
 
         struct {
-            float motor_1;
-            float motor_2;
-            float motor_3;
-            float motor_4;
+            int16_t motor_1;
+            int16_t motor_2;
+            int16_t motor_3;
+            int16_t motor_4;
         } motor_velocity;
     };
 };
@@ -46,7 +46,8 @@ struct durin_info {
     uint8_t wifi_connected;
     uint8_t telemetry_udp_enabled;
     uint16_t telemetry_udp_port;
-    uint32_t telemetry_udp_address; 
+    uint8_t telemetry_udp_address[4];
+    uint16_t telemetry_udp_rate; 
 };
 
 struct durin_hardware {
