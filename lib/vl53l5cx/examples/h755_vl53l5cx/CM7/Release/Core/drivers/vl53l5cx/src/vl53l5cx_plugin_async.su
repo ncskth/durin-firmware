@@ -1,0 +1,6 @@
+vl53l5cx_plugin_async.c:4:9:vl53l5cx_start_check_data_ready_async	8	static
+vl53l5cx_plugin_async.c:19:9:vl53l5cx_check_data_ready_async_in_progress	0	static
+vl53l5cx_plugin_async.c:24:9:vl53l5cx_finish_check_data_ready_async	0	static
+vl53l5cx_plugin_async.c:44:9:vl53l5cx_start_get_ranging_data_async	8	static
+vl53l5cx_plugin_async.c:60:9:vl53l5cx_get_ranging_data_async_in_progress	0	static
+vl53l5cx_plugin_async.c:65:9:vl53l5cx_finish_get_ranging_data_async	32	static

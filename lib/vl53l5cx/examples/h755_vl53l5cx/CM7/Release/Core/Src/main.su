@@ -1,0 +1,4 @@
+main.c:104:6:HAL_I2C_MemRxCpltCallback	1368	static
+main.c:233:6:SystemClock_Config	120	static,ignoring_inline_asm
+main.c:137:5:main	80	static,ignoring_inline_asm
+main.c:540:6:Error_Handler	0	static,ignoring_inline_asm

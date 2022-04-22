@@ -1,0 +1,6 @@
+vl53l5cx_plugin_xtalk.c:70:16:_vl53l5cx_poll_for_answer.constprop	24	static
+vl53l5cx_plugin_xtalk.c:337:9:vl53l5cx_get_caldata_xtalk	40	static
+vl53l5cx_plugin_xtalk.c:366:9:vl53l5cx_set_caldata_xtalk	24	static
+vl53l5cx_plugin_xtalk.c:379:9:vl53l5cx_get_xtalk_margin	16	static
+vl53l5cx_plugin_xtalk.c:394:9:vl53l5cx_set_xtalk_margin	32	static
+vl53l5cx_plugin_xtalk.c:197:9:vl53l5cx_calibrate_xtalk	184	static

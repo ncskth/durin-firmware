@@ -1,0 +1,4 @@
+vl53l5cx_plugin_detection_thresholds.c:65:9:vl53l5cx_get_detection_thresholds_enable	24	static
+vl53l5cx_plugin_detection_thresholds.c:78:9:vl53l5cx_set_detection_thresholds_enable	40	static
+vl53l5cx_plugin_detection_thresholds.c:109:9:vl53l5cx_get_detection_thresholds	24	static
+vl53l5cx_plugin_detection_thresholds.c:157:9:vl53l5cx_set_detection_thresholds	32	static

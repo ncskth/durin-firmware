@@ -1,0 +1,9 @@
+platform.c:65:9:RdByte	40	static
+platform.c:83:9:WrByte	32	static
+platform.c:99:9:WrMulti	56	static
+platform.c:110:9:WrMultiAsync	40	static
+platform.c:122:9:RdMulti	56	static
+platform.c:133:9:RdMultiAsync	40	static
+platform.c:145:9:Reset_Sensor	16	static
+platform.c:162:6:SwapBuffer	24	static
+platform.c:181:9:WaitMs	16	static
