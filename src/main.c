@@ -111,7 +111,7 @@ void core1_task(void* arg) {
     // servo
     init_servo();
 
-    init_imu();
+    //init_imu();
 
     // init TOF
     init_tof_and_expander();
@@ -122,6 +122,7 @@ void core1_task(void* arg) {
     // wifi
     init_wifi();    
 
+    durin.info.init_finished = 1;
     printf("init done\n");
 
 
@@ -147,7 +148,7 @@ void app_main() {
     gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_3V3_EN, 1);
     esp_event_loop_create_default();
-    xTaskCreatePinnedToCore(core0_task, "core_0", 2048, NULL, 0, NULL, 0);
+    xTaskCreatePinnedToCore(core0_task, "core_0", 4086, NULL, 0, NULL, 0);
     xTaskCreatePinnedToCore(core1_task, "core_1", 6034, NULL, 5, NULL, 1);
     return;
 }

@@ -1,7 +1,23 @@
 #include <stdint.h>
 
+#define POWER_OFF 1
+
+#define MOVE_ROB_CENTRIC 2
+#define MOVE_WHEELS 3
+
+#define POLL_ALL 16
+#define START_STREAM 18
+
+#define TOF_UDP_1 128
+#define TOF_UDP_2 129
+#define TOF_UDP_3 130
+#define TOF_UDP_4 131
+#define MISC_UDP 132
+#define UWB_UDP 133
+
+
 struct __attribute__((packed)) start_stream {
-    uint8_t ip[4];
+    uint32_t ip;
     uint16_t port;
     uint16_t rate;
 };

@@ -74,9 +74,9 @@ void update_servo(struct pt *pt) {
 
             dx_set_goal_velocity(&dx, SERVO1, speed1, 1);
             PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO2, speed2, 1); // negative because on the right
+            dx_set_goal_velocity(&dx, SERVO2, speed2, 1);
             PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO3, speed3, 1); // negative because on the right
+            dx_set_goal_velocity(&dx, SERVO3, speed3, 1);
             PT_YIELD(pt);
             dx_set_goal_velocity(&dx, SERVO4, speed4, 1);
             PT_YIELD(pt);

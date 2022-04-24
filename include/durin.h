@@ -46,7 +46,7 @@ struct durin_info {
     uint8_t wifi_connected;
     uint8_t telemetry_udp_enabled;
     uint16_t telemetry_udp_port;
-    uint8_t telemetry_udp_address[4];
+    uint32_t telemetry_udp_address;
     uint16_t telemetry_udp_rate; 
 };
 

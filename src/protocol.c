@@ -7,14 +7,6 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 
-#define POWER_OFF 1
-
-#define MOVE_ROB_CENTRIC 2
-#define MOVE_WHEELS 3
-
-#define POLL_ALL 16
-#define START_STREAM 18
-
 
 uint16_t id_to_len(uint8_t id) {
     switch (id) {
@@ -40,6 +32,8 @@ void parse_msg(uint8_t id, uint8_t *buf) {
     }
     if (id == MOVE_ROB_CENTRIC) {
         struct move_robot_velocity *data = (struct move_robot_velocity*) buf; 
+        printf("move robot x %d y %d rot %d\n", data->vel_x, data->vel_y, data->rot);
+
         durin.control.control_mode = DURIN_ROBOT_VELOCITY;
         durin.control.robot_velocity.velocity_x = data->vel_x;
         durin.control.robot_velocity.velocity_y = data->vel_y;
@@ -48,6 +42,7 @@ void parse_msg(uint8_t id, uint8_t *buf) {
 
     if (id == MOVE_WHEELS) {
         struct move_motor_velocity *data = (struct move_motor_velocity*) buf; 
+        printf("move wheels %d %d %d %d\n", data->motor1, data->motor2, data->motor3, data->motor4);
         durin.control.control_mode = DURIN_MOTOR_VELOCITY;
         durin.control.motor_velocity.motor_1 = data->motor1;
         durin.control.motor_velocity.motor_2 = data->motor2;
@@ -56,8 +51,10 @@ void parse_msg(uint8_t id, uint8_t *buf) {
     }
 
     if (id == START_STREAM) {
-        struct start_stream *data = (struct start_stream*) buf; 
-        memcpy(durin.info.telemetry_udp_address, data->ip, 4);
+        struct start_stream *data = (struct start_stream*) buf;
+        uint8_t *tmp = &data->ip;
+        printf("start stream ip %d.%d.%d.%d port %d\n", tmp[0], tmp[1], tmp[2], tmp[3], data->port);
+        durin.info.telemetry_udp_address = data->ip;
         durin.info.telemetry_udp_port = data->port;
         durin.info.telemetry_udp_rate = data->rate;
         durin.info.telemetry_udp_enabled = 1;

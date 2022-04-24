@@ -88,6 +88,7 @@ void tcp_server_task() {
 
         int client_socket = accept(tcp_server_socket_id,(struct sockaddr *)&remote_addr, &socklen);
         if (client_socket < 0) {
+            printf("no client\n");            
             vTaskDelay(WIFI_DELAY_NO_CLIENT / portTICK_PERIOD_MS);
             continue;
         }
@@ -119,6 +120,7 @@ void tcp_server_task() {
 void wifi_disconnected_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data) {
     if (durin.info.wifi_connected) {
         close(tcp_server_socket_id);
+        close(udp_client_socket_id);
     }
     durin.info.wifi_connected = 0;
     esp_wifi_connect(); // a failed connect sends a disconnected event
@@ -135,6 +137,9 @@ void got_ip_handler(void* handler_args, esp_event_base_t base, int32_t id, void*
     bind(tcp_server_socket_id, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr));
     listen(tcp_server_socket_id, 2);
     fcntl(tcp_server_socket_id, F_SETFL, O_NONBLOCK);
+
+    udp_client_socket_id = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    fcntl(udp_client_socket_id, F_SETFL, O_NONBLOCK);
 
     durin.info.wifi_connected = 1;
 }
@@ -173,10 +178,42 @@ void init_wifi() {
     esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, wifi_disconnected_handler, NULL, NULL);
     esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, got_ip_handler, NULL, NULL);    
 
-    // udp_client_socket_id = open(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-    // fcntl(udp_client_socket_id, F_SETFL, O_NONBLOCK);
-
     xTaskCreatePinnedToCore(tcp_server_task, "tcp_server", 2048, NULL, 4, NULL, 1);
+}
+
+uint8_t volt_to_percent(float volt) {
+    // 8.4 100
+    // 8.2 90
+    // 8.05 80
+    // 7.91 70
+    // 7.75 60
+    // 7.67 50
+    // 7.59 40
+    // 7.53 30
+    // 7.45 20
+    // 7.37 10
+
+    if (volt < 7.37)
+        return 0;
+    if (volt < 7.45)
+        return 10;
+    if (volt < 7.53)
+        return 20;
+    if (volt < 7.59)
+        return 30;
+    if (volt < 7.67)
+        return 40;
+    if (volt < 7.75)
+        return 50;
+    if (volt < 7.91)
+        return 60;
+    if (volt < 8.05)
+        return 70;  
+    if (volt < 8.2)
+        return 80;        
+    if (volt < 8.4)
+        return 90;
+    return 100;
 }
 
 void update_wifi(struct pt *pt) {
@@ -185,13 +222,44 @@ void update_wifi(struct pt *pt) {
     last_send = esp_timer_get_time();
     while(1) {
         PT_YIELD(pt);
+        if (!durin.info.wifi_connected) {
+            // printf("UDP wifi not active\n");
+            continue;
+        }
         if (!durin.info.telemetry_udp_enabled) {
+            // printf("UDP not enabled\n");
             continue;
         }
         if (esp_timer_get_time() - last_send < durin.info.telemetry_udp_rate * 1000) {
+            // printf("UDP waiting %llu %d\n", esp_timer_get_time() - last_send, durin.info.telemetry_udp_rate * 1000);
             continue;
         }
         //send stuff
+        struct sockaddr_in dest_addr;
+        // dest_addr.sin_addr.s_addr = htonl(durin.info.telemetry_udp_address);
+        dest_addr.sin_addr.s_addr = durin.info.telemetry_udp_address;
+        dest_addr.sin_family = AF_INET;
+        dest_addr.sin_port = htons(durin.info.telemetry_udp_port);
+
+        uint8_t buf[512];
+        uint8_t *id = &buf[0];
+        uint8_t *payload = &buf[1];
+
+        struct misc_package *misc_data = payload;
+        misc_data->battery_voltage = durin.telemetry.battery_voltage / 1000;
+        misc_data->charge_percent = volt_to_percent(durin.telemetry.battery_voltage);
+        misc_data->ax = durin.telemetry.ax;
+        misc_data->ay = durin.telemetry.ay;
+        misc_data->az = durin.telemetry.az;
+        misc_data->gx = durin.telemetry.gx;
+        misc_data->gy = durin.telemetry.gy;
+        misc_data->gz = durin.telemetry.gz;
+        misc_data->mx = durin.telemetry.mx;
+        misc_data->my = durin.telemetry.my;
+        misc_data->mz = durin.telemetry.mz;
+        *id = MISC_UDP;
+        int e = sendto(udp_client_socket_id, buf, sizeof(*misc_data), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+        printf("udp return %d\n", e);
 
         last_send = esp_timer_get_time();
     }
