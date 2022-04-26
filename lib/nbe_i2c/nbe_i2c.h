@@ -10,18 +10,18 @@ extern "C" {
 #include <stdint.h>
 
 typedef struct nbe_i2c {
-    uint8_t *tx_buf;
-    uint16_t should_write;
-    uint16_t has_written;
-    uint8_t *rx_buf;
-    uint16_t should_read;
-    uint16_t has_read;
-    i2c_hal_context_t hi2c;
-    i2c_hw_cmd_t cmd;
-    uint8_t cmd_index;
-    uint8_t i2c_num;
-    uint8_t busy;
-    uint8_t preamble_size; //up to 32
+    volatile uint8_t *tx_buf;
+    volatile uint16_t should_write;
+    volatile uint16_t has_written;
+    volatile uint8_t *rx_buf;
+    volatile uint16_t should_read;
+    volatile uint16_t has_read;
+    volatile i2c_hal_context_t hi2c;
+    volatile i2c_hw_cmd_t cmd;
+    volatile uint8_t cmd_index;
+    volatile uint8_t i2c_num;
+    volatile uint8_t busy;
+    volatile uint8_t preamble_size; //up to 32
 } nbe_i2c_t;
 
 uint8_t i2c_first_byte_read(uint8_t address);

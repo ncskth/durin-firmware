@@ -67,12 +67,17 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
         uint8_t len = to_send < max_len ? to_send : max_len;
         nbe_i2c->has_written += len;
         i2c_ll_write_txfifo(dev, tx_start, len);
+
+        dev->int_clr.tx_send_empty = 1;
     }
     else if (dev->int_status.rx_rec_full) {
         uint8_t *rx_start = nbe_i2c->rx_buf + nbe_i2c->has_read;
         uint8_t len = i2c_ll_get_rxfifo_cnt(dev);
         i2c_ll_read_rxfifo(dev, rx_start, len);
         nbe_i2c->has_read += len;
+
+        dev->int_clr.rx_rec_full = 1;
+
     }
     else if (dev->int_status.trans_complete) {
         uint8_t *rx_start = nbe_i2c->rx_buf + nbe_i2c->has_read;
@@ -80,18 +85,18 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
         i2c_ll_read_rxfifo(dev, rx_start, len);
         nbe_i2c->has_read += len;
         nbe_i2c->busy = 0;
+        dev->int_clr.trans_complete = 1;
     } 
     else if (dev->int_status.end_detect) {
 
     }
     else if (dev->int_status.time_out) {
-        
+
     } 
     else if (dev->int_status.arbitration_lost) {
         
     }
 
-    dev->int_clr.val = (uint32_t) 0xffff;
     return;
 }
 
@@ -122,7 +127,7 @@ void nbe_i2c_init(nbe_i2c_t *nbe_i2c, uint8_t i2c_num, gpio_num_t sda, gpio_num_
     nbe_i2c->hi2c.dev->int_ena.trans_complete = 1;
     //nbe_i2c->hi2c.dev->int_ena.end_detect = 1;
     //nbe_i2c->hi2c.dev->int_ena.arbitration_lost = 1;
-    //nbe_i2c->hi2c.dev->int_ena.time_out = 1;
+    // nbe_i2c->hi2c.dev->int_ena.time_out = 1;
 
     i2c_hal_set_rxfifo_full_thr(&nbe_i2c->hi2c, NBE_I2C_FIFO_FULL_THRESH_VAL);
     i2c_hal_set_txfifo_empty_thr(&nbe_i2c->hi2c, NBE_I2C_FIFO_EMPTY_THRESH_VAL);

@@ -60,6 +60,7 @@ void core0_task(void* arg) {
     uint64_t end_time = esp_timer_get_time();
 
     while (1) {
+        // printf("update\n");
         uint64_t start_time = end_time;
         durin.info.cycle_count += 1;
         update_tof_and_expander(&tof_and_expander_pt);
@@ -68,10 +69,10 @@ void core0_task(void* arg) {
         update_imu(&imu_pt);
         update_wifi(&wifi_pt);
 
-        while (end_time < start_time + MAIN_LOOP_PERIOD) {
-            end_time = esp_timer_get_time();
-            // vTaskDelay(0);
-        }
+        // while (end_time < start_time + MAIN_LOOP_PERIOD) {
+        //     end_time = esp_timer_get_time();
+        //     // vTaskDelay(0);
+        // }
         // vTaskDelay(0);
     }
     vTaskDelete(NULL);

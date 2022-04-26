@@ -72,14 +72,16 @@ uint16_t package_misc(uint8_t *buf) {
     misc_data->mx = durin.telemetry.mx;
     misc_data->my = durin.telemetry.my;
     misc_data->mz = durin.telemetry.mz;
+    printf("sent acceleration %d\n", misc_data->ax);
     return sizeof(*misc_data) + 1;
 }
 
 uint16_t package_tof(uint8_t *buf, uint8_t package) {
     uint8_t i = 2 * (package - 1);
-    buf[0] = TOF_UDP_1 + i;
+    buf[0] = TOF_UDP_1 + package - 1;
     memcpy(buf + 1, durin.telemetry.ranging_data[i], 128);
     memcpy(buf + 129, durin.telemetry.ranging_data[i + 1], 128);
+    printf("send tof %d %d %d %d %d %d\n", buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]);
     return 257;
 }
 

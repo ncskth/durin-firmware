@@ -15,8 +15,10 @@
 #define SERVO3 34
 #define SERVO4 35
 
+#define ROBOT_RADIUS_MM 500 // mm
+
 #define PI 3.141592
-#define DIAMETER 60
+#define DIAMETER 60 // mm
 #define MMS_TO_RPM (60/(DIAMETER*PI))
 
 uint8_t servos[] = {SERVO1, SERVO2, SERVO3, SERVO4};
@@ -51,7 +53,7 @@ void update_servo(struct pt *pt) {
     static float speed3;
     static float speed4;
     while(1) {
-        if (esp_timer_get_time() - durin.info.last_message_received > 5*1000*1000) {
+        if (esp_timer_get_time() - durin.info.last_message_received > 3*1000*1000) {
             durin.control.control_mode = DURIN_MOTOR_VELOCITY;
             durin.control.motor_velocity.motor_1 = 0;
             durin.control.motor_velocity.motor_2 = 0;
@@ -67,10 +69,28 @@ void update_servo(struct pt *pt) {
             float speed14 = sinf(angle + PI / 4) * magnitude * MMS_TO_RPM * 2; // multiply by two because the vector is cut in half???
             float speed23 = sinf(angle - PI / 4) * magnitude * MMS_TO_RPM * 2;
             
+            float robot_circumference = ROBOT_RADIUS_MM * 2 * PI;
+
+            // divide by 4 and it becomes perfect for some reason
+            float turn = robot_circumference * durin.control.robot_velocity.rotation_cw / 360.0 * MMS_TO_RPM * sqrt(2) / 8; // times sqrt(2) to get length 1??
+
+            // add movement
             speed1 = speed14;
-            speed2 = -speed23;
+            speed2 = speed23;
             speed3 = speed23;
-            speed4 = -speed14;
+            speed4 = speed14;
+
+            // add turn
+            speed1 += -turn;
+            speed2 += turn;
+            speed3 += -turn;
+            speed4 += turn;
+
+            // set direction
+            speed1 = speed1;
+            speed2 = -speed2;
+            speed3 = speed3;
+            speed4 = -speed4;
 
             dx_set_goal_velocity(&dx, SERVO1, speed1, 1);
             PT_YIELD(pt);

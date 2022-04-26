@@ -12,7 +12,7 @@
 #define VL53L5CX_ADDRESS_CHAIN_START 0x41
 VL53L5CX_Configuration tof_sensors[NUM_VL53L5CX];
 
-#define TOF_I2C_WAIT() do { PT_YIELD(pt); } while (nbe_i2c_is_busy(&durin.hw.i2c_tof))
+#define TOF_I2C_WAIT() do { printf("tof i2c wait"); PT_YIELD(pt); } while (nbe_i2c_is_busy(&durin.hw.i2c_tof))
 #define TOF_I2C_WAIT_BLOCK() do {} while (nbe_i2c_is_busy(&durin.hw.i2c_tof))
 
 void expander_write(uint16_t output);
@@ -80,13 +80,17 @@ void update_tof_and_expander(struct pt *pt) {
 
         // update at 15 Hz
         if (esp_timer_get_time() - last_tof_update < 1000000 / 15) {
+            printf("skip tof\n");
             continue;
         }
         last_tof_update = esp_timer_get_time();
         for (tof_index = 0; tof_index < NUM_VL53L5CX; tof_index++) {
             if (!durin.info.tof_sensor_alive[tof_index]) {
+                printf("dead tof\n");
+
                 continue;
             }
+            printf("update tof\n");
             vl53l5cx_get_ranging_data_async_start(&tof_sensors[tof_index]);
             TOF_I2C_WAIT();
             VL53L5CX_ResultsData result;

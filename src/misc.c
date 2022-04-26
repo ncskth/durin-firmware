@@ -127,7 +127,9 @@ void update_misc(struct pt *pt) {
         }
 
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
-        durin.telemetry.battery_voltage = raw_adc / ((float) (1 << 11)) * 3; // 3 for the voltage divider
+        durin.telemetry.battery_voltage = ((float) raw_adc) / ((float) (1 << 11)) * 3.0; // 3 for the voltage divider
+
+        // printf("adc %f %d\n", durin.telemetry.battery_voltage, raw_adc);
         PT_YIELD(pt);
     }
     PT_END(pt);
