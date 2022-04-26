@@ -6,7 +6,9 @@
 #define MOVE_WHEELS 3
 
 #define POLL_ALL 16
+#define POLL_SENSOR 17
 #define START_STREAM 18
+#define STOP_STREAM 19
 
 #define TOF_UDP_1 128
 #define TOF_UDP_2 129
@@ -14,12 +16,16 @@
 #define TOF_UDP_4 131
 #define MISC_UDP 132
 #define UWB_UDP 133
-
+#define ACKNOWLEDGE 0
 
 struct __attribute__((packed)) start_stream {
     uint32_t ip;
     uint16_t port;
     uint16_t rate;
+};
+
+struct __attribute__((packed)) poll_sensor {
+    uint8_t id;
 };
 
 struct __attribute__((packed)) move_robot_velocity {
@@ -35,24 +41,9 @@ struct __attribute__((packed)) move_motor_velocity {
     int16_t motor4;
 };
 
-struct __attribute__((packed)) tof_package_1 {
+struct __attribute__((packed)) tof_package {
     uint16_t tof_0[8*8];
     uint16_t tof_1[8*8];
-};
-
-struct __attribute__((packed)) tof_package_2 {
-    uint16_t tof_2[8*8];
-    uint16_t tof_3[8*8];
-};
-
-struct __attribute__((packed)) tof_package_3 {
-    uint16_t tof_4[8*8];
-    uint16_t tof_5[8*8];
-};
-
-struct __attribute__((packed)) tof_package_4 {
-    uint16_t tof_6[8*8];
-    uint16_t tof_7[8*8];
 };
 
 struct __attribute__((packed)) misc_package {
@@ -78,4 +69,4 @@ struct protocol_state {
 
 };
 
-void protocol_parse_byte(struct protocol_state *state, uint8_t byte);
+uint8_t protocol_parse_byte(struct protocol_state *state, uint8_t byte, uint8_t *response);

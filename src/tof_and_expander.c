@@ -46,11 +46,16 @@ void init_tof_and_expander() {
         uint8_t alive;
         vl53l5cx_is_alive(&tof_sensors[i], &alive);
         if (!alive) {
+            durin.info.tof_sensor_alive[i] = 0;
             printf("dead tof sensor with index %d\n", i);
             continue;
         }
-
+        durin.info.tof_sensor_alive[i] = 1;
         vl53l5cx_init(&tof_sensors[i]);
+        vl53l5cx_set_ranging_mode(&tof_sensors[i], VL53L5CX_RANGING_MODE_CONTINUOUS);
+        vl53l5cx_set_ranging_frequency_hz(&tof_sensors[i], 15);
+        vl53l5cx_set_resolution(&tof_sensors[i], VL53L5CX_RESOLUTION_8X8);
+        vl53l5cx_start_ranging(&tof_sensors[i]);
         vl53l5cx_set_i2c_address(&tof_sensors[i], VL53L5CX_ADDRESS_CHAIN_START + i);
     }
 }
@@ -60,7 +65,8 @@ void update_tof_and_expander(struct pt *pt) {
 
     static uint32_t current_port_output = 1 << 16; // only 16 outputs so this value is "invalid"
     static uint8_t tof_index;
-    
+    static uint64_t last_tof_update;
+    last_tof_update = esp_timer_get_time();
     while (1) {
         if (current_port_output != durin.hw.port_expander_ouput) {
             expander_write(durin.hw.port_expander_ouput);
@@ -72,16 +78,26 @@ void update_tof_and_expander(struct pt *pt) {
         TOF_I2C_WAIT();
         durin.hw.port_expander_input = expander_parse(buf);
 
+        // update at 15 Hz
+        if (esp_timer_get_time() - last_tof_update < 1000000 / 15) {
+            continue;
+        }
+        last_tof_update = esp_timer_get_time();
         for (tof_index = 0; tof_index < NUM_VL53L5CX; tof_index++) {
+            if (!durin.info.tof_sensor_alive[tof_index]) {
+                continue;
+            }
             vl53l5cx_get_ranging_data_async_start(&tof_sensors[tof_index]);
             TOF_I2C_WAIT();
             VL53L5CX_ResultsData result;
-            //vl53l5cx_get_ranging_data_async_finish(&tof_sensors[tof_index], &result);
-            for (uint8_t i = 0; i < 64; i++) {
-                //durin.telemetry.ranging_data[tof_index][i] = result.distance_mm[i] / 1000.0;
+            vl53l5cx_get_ranging_data_async_finish(&tof_sensors[tof_index], &result);
+            for (uint8_t src_y = 0; src_y < 8; src_y++) {
+                for (uint8_t src_x = 0; src_x < 8; src_x++) {
+                    uint8_t target_x = 7 - src_x;
+                    uint8_t target_y = src_y;
+                    durin.telemetry.ranging_data[tof_index][target_x + 8 * target_y] = result.distance_mm[src_x + src_y * 8 ];           
+                }
             }
-
-            PT_YIELD(pt);
         }
     }
     PT_END(pt);

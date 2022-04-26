@@ -41,6 +41,8 @@ void nbe_i2c_write_preamble(nbe_i2c_t *nbe_i2c, uint8_t *buf, uint8_t len); //ma
 
 void nbe_i2c_write(nbe_i2c_t *nbe_i2c, uint8_t amount); // the library doesn't support a write after a read (maybe) :(
 void nbe_i2c_read(nbe_i2c_t *nbe_i2c, uint8_t amount);
+void nbe_i2c_read_nak(nbe_i2c_t *nbe_i2c, uint8_t amount);
+void nbe_i2c_read_ack(nbe_i2c_t *nbe_i2c, uint8_t amount);
 
 void nbe_i2c_stop(nbe_i2c_t *nbe_i2c);
 

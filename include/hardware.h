@@ -25,8 +25,8 @@
 #define PIN_IMU_SDA GPIO_NUM_23
 #define PIN_IMU_SCL GPIO_NUM_21
 
-#define I2C_IMU_HZ 40000
-#define I2C_TOF_HZ 200000
+#define I2C_IMU_HZ 400000
+#define I2C_TOF_HZ 1000000
 
 #define I2C_NUM_TOF 0
 #define I2C_NUM_IMU 1

@@ -91,8 +91,27 @@ uint8_t WrMulti(
 		uint8_t *p_values,
 		uint32_t size)
 {
-	WrMultiAsync(p_platform, RegisterAdress, p_values, size);
-	while (nbe_i2c_is_busy(p_platform->nbe_i2c)){}
+	uint32_t max_send_size = 255;
+	uint32_t has_sent = 0;
+	while (1) {
+		uint32_t to_send;
+		to_send = size - has_sent <= max_send_size ? size - has_sent : max_send_size;
+
+		nbe_i2c_start_write(p_platform->nbe_i2c, p_platform->address, p_values + has_sent, NULL);
+		uint8_t updated_address[2];
+		updated_address[0] = ((RegisterAdress + has_sent) >> 8) & 0x00ff;
+		updated_address[1] = (RegisterAdress + has_sent) & 0x00ff;
+		nbe_i2c_write_preamble(p_platform->nbe_i2c, updated_address, 2);
+		nbe_i2c_write(p_platform->nbe_i2c, to_send);
+		nbe_i2c_stop(p_platform->nbe_i2c);
+		nbe_i2c_commit(p_platform->nbe_i2c);
+		while (nbe_i2c_is_busy(p_platform->nbe_i2c)){}
+		has_sent += to_send;
+
+		if (has_sent - size == 0) {
+			break;
+		}
+	}
 	return 0;
 }
 
@@ -121,8 +140,18 @@ uint8_t RdMulti(
 		uint32_t size)
 {
 
-	RdMultiAsync(p_platform, RegisterAdress, p_values, size);
-	while (nbe_i2c_is_busy(p_platform->nbe_i2c)){}
+	uint16_t has_read = 0;
+	uint16_t max_read_size = 255; 
+	while (1) {
+		uint16_t to_read =  size - has_read <= max_read_size ? size - has_read : max_read_size;
+		RdMultiAsync(p_platform, RegisterAdress + has_read, p_values + has_read, to_read);
+		while (nbe_i2c_is_busy(p_platform->nbe_i2c)){}
+		has_read += to_read;
+		if (has_read - size == 0) {
+			break;
+		}
+
+	}
 	return 0;
 }
 
@@ -141,7 +170,10 @@ uint8_t RdMultiAsync(
 	nbe_i2c_start(p_platform->nbe_i2c);
 	uint8_t byte = i2c_first_byte_read(p_platform->address);
 	nbe_i2c_write_preamble(p_platform->nbe_i2c, &byte, 1);
-	nbe_i2c_read(p_platform->nbe_i2c, size);
+	if (size > 1) {
+		nbe_i2c_read_ack(p_platform->nbe_i2c, size - 1);
+	}
+	nbe_i2c_read_nak(p_platform->nbe_i2c, 1);
 	nbe_i2c_stop(p_platform->nbe_i2c);
 	nbe_i2c_commit(p_platform->nbe_i2c);
 	return 0;

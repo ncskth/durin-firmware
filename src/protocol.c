@@ -20,16 +20,22 @@ uint16_t id_to_len(uint8_t id) {
             return 0;
         case START_STREAM:
             return 8; 
+        case STOP_STREAM:
+            return 0;
+        case POLL_SENSOR:
+            return 1;
     }
     return 0;
 }
 
-void parse_msg(uint8_t id, uint8_t *buf) {
+void parse_msg(uint8_t id, uint8_t *buf, uint8_t *response) {
     durin.info.last_message_received = esp_timer_get_time();
 
     if (id == POWER_OFF) {
         gpio_set_level(PIN_3V3_EN, 0);
+        *response = ACKNOWLEDGE; // not like you can respond to this
     }
+
     if (id == MOVE_ROB_CENTRIC) {
         struct move_robot_velocity *data = (struct move_robot_velocity*) buf; 
         printf("move robot x %d y %d rot %d\n", data->vel_x, data->vel_y, data->rot);
@@ -38,6 +44,7 @@ void parse_msg(uint8_t id, uint8_t *buf) {
         durin.control.robot_velocity.velocity_x = data->vel_x;
         durin.control.robot_velocity.velocity_y = data->vel_y;
         durin.control.robot_velocity.rotation_cw = data->rot;
+        *response = ACKNOWLEDGE;
     }
 
     if (id == MOVE_WHEELS) {
@@ -48,6 +55,7 @@ void parse_msg(uint8_t id, uint8_t *buf) {
         durin.control.motor_velocity.motor_2 = data->motor2;
         durin.control.motor_velocity.motor_3 = data->motor3;
         durin.control.motor_velocity.motor_4 = data->motor4;
+        *response = ACKNOWLEDGE;
     }
 
     if (id == START_STREAM) {
@@ -58,10 +66,21 @@ void parse_msg(uint8_t id, uint8_t *buf) {
         durin.info.telemetry_udp_port = data->port;
         durin.info.telemetry_udp_rate = data->rate;
         durin.info.telemetry_udp_enabled = 1;
+        *response = ACKNOWLEDGE;
+    }
+
+    if (id == STOP_STREAM) {
+        durin.info.telemetry_udp_enabled = 0;
+        *response = ACKNOWLEDGE;
+    }
+
+    if (id == POLL_SENSOR) {
+        struct poll_sensor *data = (struct poll_sensor*) buf;
+        *response = data->id; 
     }
 }
 
-void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
+uint8_t protocol_parse_byte(struct protocol_state *state, uint8_t byte, uint8_t *response) {
     if (state->state == 0) {
         state->id = byte;
         state->expected_len = id_to_len(state->id);
@@ -73,7 +92,9 @@ void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
     }
 
     if (state->current_len == state->expected_len) {
-        parse_msg(state->id, state->payload_buf);
+        parse_msg(state->id, state->payload_buf, response);
         state->state = 0;
+        return 1;
     }
+    return 0;
 }

@@ -264,11 +264,13 @@ uint8_t vl53l5cx_init(VL53L5CX_Configuration *p_dev) {
 	status |= WrByte(&(p_dev->platform), 0x000E, 0x01);
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x02);
 
+
 	/* Enable FW access */
 	status |= WrByte(&(p_dev->platform), 0x03, 0x0D);
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x01);
 	status |= _vl53l5cx_poll_for_answer(p_dev, 1, 0, 0x21, 0x10, 0x10);
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
+
 
 	/* Enable host access to GO1 */
 	status |= WrByte(&(p_dev->platform), 0x0C, 0x01);
@@ -297,6 +299,7 @@ uint8_t vl53l5cx_init(VL53L5CX_Configuration *p_dev) {
 	status |= WrByte(&(p_dev->platform), 0x20, 0x07);
 	status |= WrByte(&(p_dev->platform), 0x20, 0x06);
 
+
 	/* Download FW into VL53L5 */
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x09);
 	status |= WrMulti(&(p_dev->platform), 0, (uint8_t*) &VL53L5CX_FIRMWARE[0],
@@ -308,6 +311,7 @@ uint8_t vl53l5cx_init(VL53L5CX_Configuration *p_dev) {
 	status |= WrMulti(&(p_dev->platform), 0,
 			(uint8_t*) &VL53L5CX_FIRMWARE[0x10000], 0x5000);
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x01);
+
 
 	/* Check if FW correctly downloaded */
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x02);
@@ -328,6 +332,7 @@ uint8_t vl53l5cx_init(VL53L5CX_Configuration *p_dev) {
 	status |= WrByte(&(p_dev->platform), 0x0B, 0x01);
 	status |= _vl53l5cx_poll_for_answer(p_dev, 1, 0, 0x06, 0xff, 0x00);
 	status |= WrByte(&(p_dev->platform), 0x7fff, 0x02);
+
 
 	/* Get offset NVM data and store them into the offset buffer */
 	status |= WrMulti(&(p_dev->platform), 0x2fd8,
@@ -359,146 +364,6 @@ uint8_t vl53l5cx_init(VL53L5CX_Configuration *p_dev) {
 		VL53L5CX_DCI_FW_NB_TARGET, 16,
 	(uint8_t*)&tmp, 1, 0x0C);
 #endif
-
-	status |= vl53l5cx_dci_write_data(p_dev, (uint8_t*) &single_range,
-	VL53L5CX_DCI_SINGLE_RANGE, (uint16_t) sizeof(single_range));
-
-	return status;
-}
-
-uint8_t vl53l5cx_minimal_init(VL53L5CX_Configuration *p_dev) {
-	uint8_t tmp, status = VL53L5CX_STATUS_OK;
-	uint8_t pipe_ctrl[] = { VL53L5CX_NB_TARGET_PER_ZONE, 0x00, 0x01, 0x00 };
-	uint32_t single_range = 0x01;
-
-	p_dev->default_xtalk = (uint8_t*) VL53L5CX_DEFAULT_XTALK;
-	p_dev->default_configuration = (uint8_t*) VL53L5CX_DEFAULT_CONFIGURATION;
-
-	/* SW reboot sequence */
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0009, 0x04);
-	status |= WrByte(&(p_dev->platform), 0x000F, 0x40);
-	status |= WrByte(&(p_dev->platform), 0x000A, 0x03);
-	status |= RdByte(&(p_dev->platform), 0x7FFF, &tmp);
-	status |= WrByte(&(p_dev->platform), 0x000C, 0x01);
-
-	status |= WrByte(&(p_dev->platform), 0x0101, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0102, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x010A, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x4002, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x4002, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x010A, 0x03);
-	status |= WrByte(&(p_dev->platform), 0x0103, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x000C, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x000F, 0x43);
-	status |= WaitMs(&(p_dev->platform), 1);
-
-	status |= WrByte(&(p_dev->platform), 0x000F, 0x40);
-	status |= WrByte(&(p_dev->platform), 0x000A, 0x01);
-	status |= WaitMs(&(p_dev->platform), 100);
-
-	/* Wait for sensor booted (several ms required to get sensor ready ) */
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
-	status |= _vl53l5cx_poll_for_answer(p_dev, 1, 0, 0x06, 0xff, 1);
-
-	status |= WrByte(&(p_dev->platform), 0x000E, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x02);
-
-	/* Enable FW access */
-	status |= WrByte(&(p_dev->platform), 0x03, 0x0D);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x01);
-	status |= _vl53l5cx_poll_for_answer(p_dev, 1, 0, 0x21, 0x10, 0x10);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
-
-	/* Enable host access to GO1 */
-	status |= WrByte(&(p_dev->platform), 0x0C, 0x01);
-
-	/* Power ON status */
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x101, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x102, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x010A, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x4002, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x4002, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x010A, 0x03);
-	status |= WrByte(&(p_dev->platform), 0x103, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x400F, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x21A, 0x43);
-	status |= WrByte(&(p_dev->platform), 0x21A, 0x03);
-	status |= WrByte(&(p_dev->platform), 0x21A, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x21A, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x219, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x21B, 0x00);
-
-	/* Wake up MCU */
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0C, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x01);
-	status |= WrByte(&(p_dev->platform), 0x20, 0x07);
-	status |= WrByte(&(p_dev->platform), 0x20, 0x06);
-
-	/* Download FW into VL53L5 */
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x09);
-	status |= WrMulti(&(p_dev->platform), 0, (uint8_t*) &VL53L5CX_FIRMWARE[0],
-			0x8000);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x0a);
-	status |= WrMulti(&(p_dev->platform), 0,
-			(uint8_t*) &VL53L5CX_FIRMWARE[0x8000], 0x8000);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x0b);
-	status |= WrMulti(&(p_dev->platform), 0,
-			(uint8_t*) &VL53L5CX_FIRMWARE[0x10000], 0x5000);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x01);
-
-	/* Check if FW correctly downloaded */
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x02);
-	status |= WrByte(&(p_dev->platform), 0x03, 0x0D);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x01);
-	status |= _vl53l5cx_poll_for_answer(p_dev, 1, 0, 0x21, 0x10, 0x10);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0C, 0x01);
-
-	/* Reset MCU and wait boot */
-	status |= WrByte(&(p_dev->platform), 0x7FFF, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x114, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x115, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x116, 0x42);
-	status |= WrByte(&(p_dev->platform), 0x117, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0B, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0C, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x0B, 0x01);
-	status |= _vl53l5cx_poll_for_answer(p_dev, 1, 0, 0x06, 0xff, 0x00);
-	status |= WrByte(&(p_dev->platform), 0x7fff, 0x02);
-
-	/* Get offset NVM data and store them into the offset buffer */
-	status |= WrMulti(&(p_dev->platform), 0x2fd8,
-			(uint8_t*) VL53L5CX_GET_NVM_CMD, sizeof(VL53L5CX_GET_NVM_CMD));
-	status |= _vl53l5cx_poll_for_answer(p_dev, 4, 0,
-	VL53L5CX_UI_CMD_STATUS, 0xff, 2);
-	status |= RdMulti(&(p_dev->platform), VL53L5CX_UI_CMD_START,
-			p_dev->temp_buffer, VL53L5CX_NVM_DATA_SIZE);
-	(void) memcpy(p_dev->offset_data, p_dev->temp_buffer,
-	VL53L5CX_OFFSET_BUFFER_SIZE);
-	status |= _vl53l5cx_send_offset_data(p_dev, VL53L5CX_RESOLUTION_4X4);
-
-	/* Set default Xtalk shape. Send Xtalk to sensor */
-	(void) memcpy(p_dev->xtalk_data, (uint8_t*) VL53L5CX_DEFAULT_XTALK,
-	VL53L5CX_XTALK_BUFFER_SIZE);
-	status |= _vl53l5cx_send_xtalk_data(p_dev, VL53L5CX_RESOLUTION_4X4);
-
-	/* Send default configuration to VL53L5CX firmware */
-	status |= WrMulti(&(p_dev->platform), 0x2c34, p_dev->default_configuration,
-			sizeof(VL53L5CX_DEFAULT_CONFIGURATION));
-	status |= _vl53l5cx_poll_for_answer(p_dev, 4, 1,
-	VL53L5CX_UI_CMD_STATUS, 0xff, 0x03);
-
-	status |= vl53l5cx_dci_write_data(p_dev, (uint8_t*) &pipe_ctrl,
-	VL53L5CX_DCI_PIPE_CONTROL, (uint16_t) sizeof(pipe_ctrl));
-#if VL53L5CX_NB_TARGET_PER_ZONE != 1
-		tmp = VL53L5CX_NB_TARGET_PER_ZONE;
-		status |= vl53l5cx_dci_replace_data(p_dev, p_dev->temp_buffer,
-			VL53L5CX_DCI_FW_NB_TARGET, 16,
-		(uint8_t*)&tmp, 1, 0x0C);
-	#endif
 
 	status |= vl53l5cx_dci_write_data(p_dev, (uint8_t*) &single_range,
 	VL53L5CX_DCI_SINGLE_RANGE, (uint16_t) sizeof(single_range));

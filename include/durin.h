@@ -11,7 +11,7 @@ enum control_mode {
 struct durin_telemetry {
     float battery_voltage;
     float ranging_data[8][8*8];
-    float ax, ay, az, gx, gy, gz, mx, my, mz;
+    int16_t ax, ay, az, gx, gy, gz, mx, my, mz;
     float heading;
     float vx, vy;
     float px, py;
@@ -48,6 +48,7 @@ struct durin_info {
     uint16_t telemetry_udp_port;
     uint32_t telemetry_udp_address;
     uint16_t telemetry_udp_rate; 
+    uint8_t tof_sensor_alive[8];
 };
 
 struct durin_hardware {

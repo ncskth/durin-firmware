@@ -25,6 +25,8 @@
 #include "durin.h"
 #include "pt.h"
 #include "icm20948.h"
+#include "vl53l5cx_api.h"
+#include "vl53l5cx_plugin_async.h"
 
 #include "tof_and_expander.h"
 #include "wifi.h"
@@ -60,7 +62,7 @@ void core0_task(void* arg) {
     while (1) {
         uint64_t start_time = end_time;
         durin.info.cycle_count += 1;
-        //update_tof_and_expander(&tof_and_expander_pt);
+        update_tof_and_expander(&tof_and_expander_pt);
         update_servo(&servo_pt);
         update_misc(&misc_pt);
         update_imu(&imu_pt);
@@ -111,7 +113,7 @@ void core1_task(void* arg) {
     // servo
     init_servo();
 
-    //init_imu();
+    init_imu();
 
     // init TOF
     init_tof_and_expander();
@@ -125,16 +127,8 @@ void core1_task(void* arg) {
     durin.info.init_finished = 1;
     printf("init done\n");
 
-
     while (1) {
-        //icm20948_start_read_all(&icm);
-        uint8_t buf[128];
-        // nbe_i2c_start_read(&durin.hw.i2c_imu, 0x78, NULL, buf);
-        // nbe_i2c_read(&durin.hw.i2c_imu, 127);
-        // nbe_i2c_stop(&durin.hw.i2c_imu);
-        // nbe_i2c_commit(&durin.hw.i2c_imu);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        //icm20948_get_all_raw(&icm, &ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     vTaskDelete(NULL);
@@ -149,6 +143,6 @@ void app_main() {
     gpio_set_level(PIN_3V3_EN, 1);
     esp_event_loop_create_default();
     xTaskCreatePinnedToCore(core0_task, "core_0", 4086, NULL, 0, NULL, 0);
-    xTaskCreatePinnedToCore(core1_task, "core_1", 6034, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(core1_task, "core_1", 4086 * 2, NULL, 5, NULL, 1);
     return;
 }

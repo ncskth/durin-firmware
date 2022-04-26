@@ -64,8 +64,8 @@ void update_servo(struct pt *pt) {
             float y = durin.control.robot_velocity.velocity_y;
             float angle = atan2f(y, x);
             float magnitude = sqrtf(x*x + y*y);
-            float speed14 = sinf(angle + PI / 4) * magnitude;
-            float speed23 = sinf(angle - PI / 4) * magnitude;
+            float speed14 = sinf(angle + PI / 4) * magnitude * MMS_TO_RPM * 2; // multiply by two because the vector is cut in half???
+            float speed23 = sinf(angle - PI / 4) * magnitude * MMS_TO_RPM * 2;
             
             speed1 = speed14;
             speed2 = -speed23;

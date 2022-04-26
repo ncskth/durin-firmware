@@ -62,7 +62,7 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
     i2c_dev_t *dev = nbe_i2c->hi2c.dev;
     if (dev->int_status.tx_send_empty) {
         uint8_t *tx_start = nbe_i2c->tx_buf + nbe_i2c->has_written;
-        uint8_t max_len = NBE_I2C_FIFO_SIZE - NBE_I2C_FIFO_EMPTY_THRESH_VAL;
+        uint8_t max_len = i2c_ll_get_txfifo_len(dev);
         uint16_t to_send = nbe_i2c->should_write - nbe_i2c->has_written;
         uint8_t len = to_send < max_len ? to_send : max_len;
         nbe_i2c->has_written += len;
@@ -70,26 +70,25 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
     }
     else if (dev->int_status.rx_rec_full) {
         uint8_t *rx_start = nbe_i2c->rx_buf + nbe_i2c->has_read;
-        i2c_ll_read_rxfifo(dev, rx_start, NBE_I2C_FIFO_FULL_THRESH_VAL);
-        nbe_i2c->has_read += NBE_I2C_FIFO_FULL_THRESH_VAL;
+        uint8_t len = i2c_ll_get_rxfifo_cnt(dev);
+        i2c_ll_read_rxfifo(dev, rx_start, len);
+        nbe_i2c->has_read += len;
     }
     else if (dev->int_status.trans_complete) {
         uint8_t *rx_start = nbe_i2c->rx_buf + nbe_i2c->has_read;
         uint8_t len = i2c_ll_get_rxfifo_cnt(dev);
         i2c_ll_read_rxfifo(dev, rx_start, len);
+        nbe_i2c->has_read += len;
         nbe_i2c->busy = 0;
     } 
     else if (dev->int_status.end_detect) {
-        uint8_t *rx_start = nbe_i2c->rx_buf + nbe_i2c->has_read;
-        uint8_t len = i2c_ll_get_rxfifo_cnt(dev);
-        i2c_ll_read_rxfifo(dev, rx_start, len);
-        nbe_i2c->busy = 0;
+
     }
     else if (dev->int_status.time_out) {
-        nbe_i2c->busy = 0;
+        
     } 
     else if (dev->int_status.arbitration_lost) {
-        nbe_i2c->busy = 0;
+        
     }
 
     dev->int_clr.val = (uint32_t) 0xffff;
@@ -121,9 +120,9 @@ void nbe_i2c_init(nbe_i2c_t *nbe_i2c, uint8_t i2c_num, gpio_num_t sda, gpio_num_
     nbe_i2c->hi2c.dev->int_ena.rx_rec_full = 1;
     nbe_i2c->hi2c.dev->int_ena.tx_send_empty = 1;
     nbe_i2c->hi2c.dev->int_ena.trans_complete = 1;
-    nbe_i2c->hi2c.dev->int_ena.end_detect = 1;
-    nbe_i2c->hi2c.dev->int_ena.arbitration_lost = 1;
-    nbe_i2c->hi2c.dev->int_ena.time_out = 1;
+    //nbe_i2c->hi2c.dev->int_ena.end_detect = 1;
+    //nbe_i2c->hi2c.dev->int_ena.arbitration_lost = 1;
+    //nbe_i2c->hi2c.dev->int_ena.time_out = 1;
 
     i2c_hal_set_rxfifo_full_thr(&nbe_i2c->hi2c, NBE_I2C_FIFO_FULL_THRESH_VAL);
     i2c_hal_set_txfifo_empty_thr(&nbe_i2c->hi2c, NBE_I2C_FIFO_EMPTY_THRESH_VAL);
@@ -196,9 +195,30 @@ void nbe_i2c_write(nbe_i2c_t *nbe_i2c, uint8_t amount) {
     nbe_i2c->should_write += amount; 
 }
 
+//deprecated
 void nbe_i2c_read(nbe_i2c_t *nbe_i2c, uint8_t amount) {
     nbe_i2c->cmd.op_code = I2C_LL_CMD_READ;
     nbe_i2c->cmd.byte_num = amount;
+    nbe_i2c->cmd.ack_val = 1;
+
+    i2c_hal_write_cmd_reg(&nbe_i2c->hi2c, nbe_i2c->cmd, nbe_i2c->cmd_index);
+    nbe_i2c->cmd_index++;
+    nbe_i2c->should_read += amount;
+}
+
+void nbe_i2c_read_nak(nbe_i2c_t *nbe_i2c, uint8_t amount) {
+    nbe_i2c->cmd.op_code = I2C_LL_CMD_READ;
+    nbe_i2c->cmd.byte_num = amount;
+    nbe_i2c->cmd.ack_val = 1;
+    i2c_hal_write_cmd_reg(&nbe_i2c->hi2c, nbe_i2c->cmd, nbe_i2c->cmd_index);
+    nbe_i2c->cmd_index++;
+    nbe_i2c->should_read += amount;
+}
+
+void nbe_i2c_read_ack(nbe_i2c_t *nbe_i2c, uint8_t amount) {
+    nbe_i2c->cmd.op_code = I2C_LL_CMD_READ;
+    nbe_i2c->cmd.byte_num = amount;
+    nbe_i2c->cmd.ack_val = 0;
     i2c_hal_write_cmd_reg(&nbe_i2c->hi2c, nbe_i2c->cmd, nbe_i2c->cmd_index);
     nbe_i2c->cmd_index++;
     nbe_i2c->should_read += amount;

@@ -28,7 +28,7 @@ void icm20948_init(icm20948_t *icm, nbe_i2c_t *nbe_i2c, uint8_t address) {
     set_sleep(icm, false);
     set_clock_source(icm);
 
-    init_mag(icm); 
+    init_mag(icm);
 }
 
 void icm20948_start_read_all(icm20948_t *icm) {
@@ -160,21 +160,61 @@ static void read_register(icm20948_t *icm, uint8_t bank, uint8_t reg_address, ui
     nbe_i2c_start(icm->nbe_i2c);
     tmp_buf[0] = i2c_first_byte_read(icm->address);
     nbe_i2c_write_preamble(icm->nbe_i2c, tmp_buf, 1);
-    nbe_i2c_read(icm->nbe_i2c, len);
+    if (len > 1) {
+        nbe_i2c_read_ack(icm->nbe_i2c, len - 1);
+    }
+    nbe_i2c_read_nak(icm->nbe_i2c, 1);
+
     nbe_i2c_stop(icm->nbe_i2c);
     nbe_i2c_commit(icm->nbe_i2c);
 }
 
 static uint8_t icmRead8(icm20948_t *icm, uint8_t reg, uint8_t bank) {
-    uint8_t byte;
-    read_register(icm, bank, reg, &byte, 1);
+    uint8_t buf[3];
+    if (bank != icm->current_bank) {
+        icm->current_bank = bank;
+        nbe_i2c_start_write(icm->nbe_i2c, icm->address, NULL, NULL);
+        buf[0] = ICM20948_REG_BANK_SEL_REG;
+        buf[1] = bank << 4;
+        nbe_i2c_write_preamble(icm->nbe_i2c, buf, 2);
+        nbe_i2c_stop(icm->nbe_i2c);
+        nbe_i2c_commit(icm->nbe_i2c);
+        while(nbe_i2c_is_busy(icm->nbe_i2c)) {};
+    }
+
+    nbe_i2c_start_write(icm->nbe_i2c, icm->address, NULL, NULL);
+    nbe_i2c_write_preamble(icm->nbe_i2c, &reg, 1);
+    nbe_i2c_stop(icm->nbe_i2c);
+    nbe_i2c_commit(icm->nbe_i2c);
     while(nbe_i2c_is_busy(icm->nbe_i2c)) {};
 
-    return byte;
+    nbe_i2c_start_read(icm->nbe_i2c, icm->address, NULL, buf);
+    nbe_i2c_read(icm->nbe_i2c, 1);
+    nbe_i2c_stop(icm->nbe_i2c);
+    nbe_i2c_commit(icm->nbe_i2c);
+    while(nbe_i2c_is_busy(icm->nbe_i2c)) {};
+
+    return buf[0];
 }
 
 static void icmWrite8(icm20948_t *icm, uint8_t reg, uint8_t bank, uint8_t value) {
-    write_register(icm, bank, reg, &value, 1);
+    uint8_t buf[3];
+    if (bank != icm->current_bank) {
+        icm->current_bank = bank;
+        nbe_i2c_start_write(icm->nbe_i2c, icm->address, NULL, NULL);
+        buf[0] = ICM20948_REG_BANK_SEL_REG;
+        buf[1] = bank << 4;
+        nbe_i2c_write_preamble(icm->nbe_i2c, buf, 2);
+        nbe_i2c_stop(icm->nbe_i2c);
+        nbe_i2c_commit(icm->nbe_i2c);
+        while(nbe_i2c_is_busy(icm->nbe_i2c)) {};
+    }
+
+    nbe_i2c_start_write(icm->nbe_i2c, icm->address, NULL, NULL);
+    nbe_i2c_write_preamble(icm->nbe_i2c, &reg, 1);
+    nbe_i2c_write_preamble(icm->nbe_i2c, &value, 1);
+    nbe_i2c_stop(icm->nbe_i2c);
+    nbe_i2c_commit(icm->nbe_i2c);
     while(nbe_i2c_is_busy(icm->nbe_i2c)) {};
 }
 
