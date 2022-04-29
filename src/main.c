@@ -128,7 +128,19 @@ void core1_task(void* arg) {
     // wifi
     init_wifi();
 
-    set_led(0, 200, 0);
+    uint8_t has_tof = 0;
+    for (uint8_t i = 0; i < 8; i++) {
+        if (durin.info.tof_sensor_alive[i]) {
+            has_tof = 1;
+        }
+    }
+
+    if (has_tof) {
+        set_led(0, 200, 0);
+    } else {
+        set_led(255, 150, 0);
+    }
+
 
     durin.info.init_finished = 1;
     printf("init done\n");

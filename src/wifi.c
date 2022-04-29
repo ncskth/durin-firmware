@@ -126,7 +126,7 @@ void tcp_server_task() {
                 vTaskDelay(WIFI_DELAY_NO_BYTES / portTICK_PERIOD_MS);
                 continue;
             }
-            if (bytes_received > 0) {
+            if (bytes_received > 0) {;
                 printf("WIFI got %d bytes\n", bytes_received);
                 for (uint8_t i = 0; i < bytes_received; i++) {
                     uint8_t response;

@@ -33,6 +33,17 @@ void init_tof_and_expander() {
     TOF_I2C_WAIT_BLOCK();
     */
 
+    VL53L5CX_Platform platform;
+    platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
+    platform.nbe_i2c = &durin.hw.i2c_tof;
+    tof_sensors[0].platform = platform;
+    uint8_t alive;
+    vl53l5cx_is_alive(&tof_sensors[0], &alive);
+    //sensor should be dead now
+    if (alive) {
+        return; // abort if we heave a dead sensor
+    }
+
     for (uint8_t i = 0 ; i < NUM_VL53L5CX; i++) {
         //unreset sensor
         durin.hw.port_expander_ouput &= ~(1 << (TOF_RESET_START + i));
