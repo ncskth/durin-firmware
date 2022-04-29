@@ -85,6 +85,8 @@ void core1_task(void* arg) {
     // misc
     init_misc();
 
+    set_led(0, 0, 200);
+
     // timer
     esp_timer_early_init();
 
@@ -125,6 +127,8 @@ void core1_task(void* arg) {
 
     // wifi
     init_wifi();
+
+    set_led(0, 200, 0);
 
     durin.info.init_finished = 1;
     printf("init done\n");

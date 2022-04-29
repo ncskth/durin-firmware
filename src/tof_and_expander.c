@@ -83,8 +83,7 @@ void update_tof_and_expander(struct pt *pt) {
         if (esp_timer_get_time() - last_tof_update < 1000000 / 15) {
             continue;
         }
-        printf("update tof\n");
-        printf("acceleration %d\n", durin.telemetry.ax);
+
         last_tof_update = esp_timer_get_time();
         for (tof_index = 0; tof_index < NUM_VL53L5CX; tof_index++) {
             if (!durin.info.tof_sensor_alive[tof_index]) {
