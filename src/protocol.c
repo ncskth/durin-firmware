@@ -30,8 +30,10 @@ uint16_t id_to_len(uint8_t id) {
 
 void parse_msg(uint8_t id, uint8_t *buf, uint8_t *response) {
     durin.info.last_message_received = esp_timer_get_time();
-    
+
     if (id == POWER_OFF) {
+        gpio_set_level(PIN_3V3_EN, 0);
+        gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
         gpio_set_level(PIN_3V3_EN, 0);
         *response = ACKNOWLEDGE; // not like you can respond to this
     }

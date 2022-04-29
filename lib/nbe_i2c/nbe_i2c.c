@@ -11,6 +11,7 @@ extern "C" {
 #include <esp_rom_sys.h>
 #include <esp_intr_alloc.h>
 #include <stdint.h>
+#include <esp_timer.h>
 
 #include "nbe_i2c.h"
 
@@ -89,12 +90,18 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
     } 
     else if (dev->int_status.end_detect) {
 
+        dev->int_clr.end_detect = 1;
     }
     else if (dev->int_status.time_out) {
-
+        //nbe_i2c_reboot(nbe_i2c);
+        dev->int_clr.time_out = 1;
     } 
     else if (dev->int_status.arbitration_lost) {
-        
+        //nbe_i2c_reboot(nbe_i2c);
+        dev->int_clr.arbitration_lost = 1;
+    }
+    else {
+        // dev->int_clr.val = 0xff;
     }
 
     return;
@@ -111,11 +118,17 @@ uint8_t i2c_first_byte_write(uint8_t address) {
 void nbe_i2c_init(nbe_i2c_t *nbe_i2c, uint8_t i2c_num, gpio_num_t sda, gpio_num_t scl, uint32_t frequency) {
     nbe_i2c->i2c_num = i2c_num;
     nbe_i2c->hi2c.dev = I2C_LL_GET_HW(nbe_i2c->i2c_num);
+    nbe_i2c->frequency = frequency;
+    nbe_i2c->scl = nbe_i2c->scl;
+    nbe_i2c->sda = nbe_i2c->sda;
+    nbe_i2c->busy = 0;
+
     nbe_i2c->cmd.ack_en = 0; //dont care about ack
     nbe_i2c->cmd.ack_exp = 0; //expect a 0
     nbe_i2c->cmd.ack_val = 1; //what the master will send as ACK
-    
+
     nbe_i2c_set_pin(nbe_i2c->i2c_num, sda, scl, 1, 1); // always pullup
+    //periph_module_disable(i2c_periph_signal[nbe_i2c->i2c_num].module);
     periph_module_enable(i2c_periph_signal[nbe_i2c->i2c_num].module);
     i2c_hal_master_init(&nbe_i2c->hi2c, nbe_i2c->i2c_num);
     i2c_hal_set_filter(&nbe_i2c->hi2c, NBE_I2C_FILTER_CYC_NUM_DEF);
@@ -126,13 +139,17 @@ void nbe_i2c_init(nbe_i2c_t *nbe_i2c, uint8_t i2c_num, gpio_num_t sda, gpio_num_
     nbe_i2c->hi2c.dev->int_ena.tx_send_empty = 1;
     nbe_i2c->hi2c.dev->int_ena.trans_complete = 1;
     //nbe_i2c->hi2c.dev->int_ena.end_detect = 1;
-    //nbe_i2c->hi2c.dev->int_ena.arbitration_lost = 1;
-    // nbe_i2c->hi2c.dev->int_ena.time_out = 1;
+    nbe_i2c->hi2c.dev->int_ena.arbitration_lost = 1;
+    nbe_i2c->hi2c.dev->int_ena.time_out = 1;
 
     i2c_hal_set_rxfifo_full_thr(&nbe_i2c->hi2c, NBE_I2C_FIFO_FULL_THRESH_VAL);
     i2c_hal_set_txfifo_empty_thr(&nbe_i2c->hi2c, NBE_I2C_FIFO_EMPTY_THRESH_VAL);
     esp_intr_alloc(i2c_periph_signal[nbe_i2c->i2c_num].irq, ESP_INTR_FLAG_IRAM, nbe_i2c_isr, nbe_i2c, NULL);
     nbe_i2c_reset(nbe_i2c);
+}
+
+void nbe_i2c_reboot(nbe_i2c_t *nbe_i2c) {
+    nbe_i2c_init(nbe_i2c, nbe_i2c->i2c_num, nbe_i2c->sda, nbe_i2c->scl, nbe_i2c->frequency);
 }
 
 uint8_t nbe_i2c_is_busy(nbe_i2c_t *nbe_i2c) {
@@ -242,7 +259,7 @@ void nbe_i2c_stop(nbe_i2c_t *nbe_i2c) {
 }
 
 void nbe_i2c_commit(nbe_i2c_t *nbe_i2c) {
-    nbe_i2c_end(nbe_i2c);
+    nbe_i2c->started_at = esp_timer_get_time();
     nbe_i2c->has_written = nbe_i2c->should_write < (NBE_I2C_FIFO_SIZE - nbe_i2c->preamble_size) ? nbe_i2c->should_write : (NBE_I2C_FIFO_SIZE - nbe_i2c->preamble_size); 
     nbe_i2c->busy = 1;
     i2c_hal_write_txfifo(&nbe_i2c->hi2c, nbe_i2c->tx_buf, nbe_i2c->has_written);

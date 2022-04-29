@@ -19,16 +19,56 @@ static void enable_I2C_master(icm20948_t *icm);
 static uint8_t read_mag(icm20948_t *icm, uint8_t reg); 
 static void write_mag(icm20948_t *icm, uint8_t reg, uint8_t value);
 static void delay(uint16_t ms);
+static void reset(icm20948_t *icm);
+static void reset_mag(icm20948_t *icm);
 
 void icm20948_init(icm20948_t *icm, nbe_i2c_t *nbe_i2c, uint8_t address) {
     icm->current_bank = 13; // random invalid number since we don't know
     icm->address = address;
     icm->nbe_i2c = nbe_i2c;
 
+    reset(icm); 
+    //delay 
+    delay(20);
+
     set_sleep(icm, false);
     set_clock_source(icm);
 
     init_mag(icm);
+}
+
+void reset(icm20948_t *icm) {
+    //set the reset bit, wait until it clears
+    uint8_t base = icmRead8(icm, ICM20948_PWR_MGMT_1_REG, 0);
+    base &= 0b01111111;
+    base |= (1<<7);
+    icmWrite8(icm, ICM20948_PWR_MGMT_1_REG, 0, base);
+    //give a small delay for the reset
+    delay(2);
+    //Serial.println(icmRead8(ICM20948_PWR_MGMT_1_REG),BIN);
+    //wait until its free
+    bool done = false;
+    long start = esp_timer_get_time() / 1000;
+    while(!done && (esp_timer_get_time() / 1000 - start < 200)){
+        //read it
+        base = icmRead8(icm, ICM20948_PWR_MGMT_1_REG, 0);
+        if((base & 0b10000000) == 0){
+            done = true;
+        }
+    }
+    return;
+}
+
+void reset_mag(icm20948_t *icm) {
+    //reset the master i2c bus
+    uint8_t base = icmRead8(icm, ICM20948_USER_CTRL_REG, 0);
+    base &= 0b11111101;
+    base |= 1 << 1;
+    icmWrite8(icm, ICM20948_USER_CTRL_REG, 0, base);
+    delay(1);
+    write_mag(icm, ICM20948_USER_CTRL_REG, 1); //reset
+    delay(10);
+    return;
 }
 
 void icm20948_start_read_all(icm20948_t *icm) {
@@ -238,7 +278,7 @@ static void init_mag(icm20948_t *icm) {
     // set the slave 0 I2C address 
     icmWrite8(icm, ICM20948_I2C_SLV0_ADDR_REG, 3, ICM20948_MAGNETOMETER_ADDR);
 
-    //reset_mag(icm);
+    reset_mag(icm);
     //give it a while to reset!
     delay(100);
     // set to continuous mode 4 

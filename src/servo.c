@@ -33,7 +33,8 @@ void init_servo() {
     durin.control.motor_velocity.motor_4 = 0;
 
     dx_init(&dx, UART_SERVO);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    dx_ping(&dx, SERVO1);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     for (uint8_t i = 0; i < 4; i++) {
         dx_set_status_return_level(&dx, servos[i], DX_PING);
         vTaskDelay(1);
@@ -87,10 +88,10 @@ void update_servo(struct pt *pt) {
             speed4 += turn;
 
             // set direction
-            speed1 = speed1;
-            speed2 = -speed2;
-            speed3 = speed3;
-            speed4 = -speed4;
+            speed1 = -speed1;
+            speed2 = speed2;
+            speed3 = -speed3;
+            speed4 = speed4;
 
             dx_set_goal_velocity(&dx, SERVO1, speed1, 1);
             PT_YIELD(pt);

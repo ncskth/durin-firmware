@@ -61,7 +61,7 @@ uint8_t volt_to_percent(float volt) {
 uint16_t package_misc(uint8_t *buf) {
     buf[0] = MISC_UDP;
     struct misc_package *misc_data = (buf + 1);
-    misc_data->battery_voltage = durin.telemetry.battery_voltage / 1000;
+    misc_data->battery_voltage = durin.telemetry.battery_voltage * 1000;
     misc_data->charge_percent = volt_to_percent(durin.telemetry.battery_voltage);
     misc_data->ax = durin.telemetry.ax;
     misc_data->ay = durin.telemetry.ay;
@@ -90,10 +90,11 @@ void tcp_server_task() {
     struct sockaddr_in remote_addr;
 	unsigned int socklen;
 	socklen = sizeof(remote_addr);
-    uint8_t rx_buf[64];
-    uint8_t tx_buf[256];
+    uint8_t rx_buf[512];
+    uint8_t tx_buf[512];
 
     while (1) {
+        vTaskDelay(WIFI_DELAY_NO_CLIENT / portTICK_PERIOD_MS);
         if (!durin.info.wifi_connected) {
             printf("no wifi\n");
             vTaskDelay(WIFI_DELAY_NO_CLIENT / portTICK_PERIOD_MS);
@@ -121,6 +122,9 @@ void tcp_server_task() {
                 if (errno == ENOTCONN) {
                     break;
                 }
+
+                vTaskDelay(WIFI_DELAY_NO_BYTES / portTICK_PERIOD_MS);
+                continue;
             }
             if (bytes_received > 0) {
                 printf("WIFI got %d bytes\n", bytes_received);
@@ -161,6 +165,7 @@ void tcp_server_task() {
                     }
                 }
             }
+            vTaskDelay(WIFI_DELAY_NO_BYTES / portTICK_PERIOD_MS);
         }// handle client loop
     }// accept client loop
 }
@@ -226,7 +231,7 @@ void init_wifi() {
     esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, wifi_disconnected_handler, NULL, NULL);
     esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, got_ip_handler, NULL, NULL);    
 
-    xTaskCreatePinnedToCore(tcp_server_task, "tcp_server", 2048, NULL, 4, NULL, 1);
+    xTaskCreatePinnedToCore(tcp_server_task, "tcp_server", 4096, NULL, 4, NULL, 1);
 }
 
 void update_wifi(struct pt *pt) {

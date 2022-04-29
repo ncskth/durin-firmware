@@ -38,6 +38,8 @@
 
 void init_led();
 
+extern icm20948_t icm;
+
 void core0_task(void* arg) {
     struct pt servo_pt;
     struct pt tof_and_expander_pt;
@@ -58,16 +60,15 @@ void core0_task(void* arg) {
     durin.info.cycle_count = 0;
     uint64_t start_time = 0;
     uint64_t end_time = esp_timer_get_time();
-
+    static uint8_t ping = 0;
     while (1) {
-        // printf("update\n");
         uint64_t start_time = end_time;
         durin.info.cycle_count += 1;
         update_tof_and_expander(&tof_and_expander_pt);
         update_servo(&servo_pt);
         update_misc(&misc_pt);
-        update_imu(&imu_pt);
         update_wifi(&wifi_pt);
+        update_imu(&imu_pt);
 
         // while (end_time < start_time + MAIN_LOOP_PERIOD) {
         //     end_time = esp_timer_get_time();
@@ -113,36 +114,31 @@ void core1_task(void* arg) {
     
     // servo
     init_servo();
-
-    init_imu();
-
+    
     // init TOF
     init_tof_and_expander();
+
+    init_imu();
 
     // NVS
     nvs_flash_init();
 
     // wifi
-    init_wifi();    
+    init_wifi();
 
     durin.info.init_finished = 1;
     printf("init done\n");
 
-    while (1) {
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    // while (1) {
+    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // }
     vTaskDelete(NULL);
 }
 
 void app_main() {
     durin.info.init_finished = 0;
-    // enable the voltage regulator really fast
-    // set level first to prevent it from going to ground (and killing itself)
-    gpio_set_level(PIN_3V3_EN, 1);
-    gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_3V3_EN, 1);
     esp_event_loop_create_default();
+
     xTaskCreatePinnedToCore(core0_task, "core_0", 4086, NULL, 0, NULL, 0);
     xTaskCreatePinnedToCore(core1_task, "core_1", 4086 * 2, NULL, 5, NULL, 1);
     return;

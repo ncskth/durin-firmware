@@ -1,18 +1,32 @@
 #include <driver/gpio.h>
 #include <driver/ledc.h>
 #include <driver/adc.h>
+#include <esp_adc_cal.h>
 
 #include "misc.h"
 #include "hardware.h"
 #include "durin.h"
 #include "esp_timer.h"
 
+#define DEFAULT_VREF 1100 
+#define VOLT_LP_GAIN 0.995
+
+esp_adc_cal_characteristics_t *adc_chars;
+
 void init_misc() {
     gpio_set_direction(PIN_BUTTON_IN, GPIO_MODE_INPUT);
     gpio_set_direction(PIN_VBAT_SENSE_GND, GPIO_MODE_OUTPUT);
-
     gpio_set_level(PIN_VBAT_SENSE_GND, 0);
 
+    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, DEFAULT_VREF, adc_chars);
+    if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+        printf("eFuse Vref\n");
+    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+        printf("Two Point\n");
+    } else {
+        printf("Default\n");
+    }
     adc1_config_width(ADC_WIDTH_12Bit);
     adc1_config_channel_atten(CHANNEL_BAT_SENSE, ADC_ATTEN_11db);
 
@@ -124,12 +138,15 @@ void update_misc(struct pt *pt) {
         if (current_time - button_last_not_pressed > 2000) {
             //make the esp kill itself :(
             gpio_set_level(PIN_3V3_EN, 0);
+            gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
+            gpio_set_level(PIN_3V3_EN, 0);
         }
 
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
-        durin.telemetry.battery_voltage = ((float) raw_adc) / ((float) (1 << 11)) * 3.0; // 3 for the voltage divider
-
-        // printf("adc %f %d\n", durin.telemetry.battery_voltage, raw_adc);
+        // float new_battery_voltage = ((float) raw_adc) / 4096 * 3.3 * 5; // 3 for the voltage divider
+        float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars);
+        durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
+        //printf("adc %f %f %d\n", durin.telemetry.battery_voltage, ((float) raw_adc) / 4096.0 * 3.3 * 5.0, esp_adc_cal_raw_to_voltage(raw_adc, adc_chars));
         PT_YIELD(pt);
     }
     PT_END(pt);
