@@ -69,15 +69,16 @@ void update_tof_and_expander(struct pt *pt) {
     last_tof_update = esp_timer_get_time();
     while (1) {
         PT_YIELD(pt);
-        // if (current_port_output != durin.hw.port_expander_ouput) {
-        //     expander_write(durin.hw.port_expander_ouput);
-        //     TOF_I2C_WAIT();
-        //     current_port_output = durin.hw.port_expander_ouput;
-        // }
-        // static uint8_t buf[2];
-        // expander_read(buf);
-        // TOF_I2C_WAIT();
-        // durin.hw.port_expander_input = expander_parse(buf);
+        if (current_port_output != durin.hw.port_expander_ouput) {
+            expander_write(durin.hw.port_expander_ouput);
+            TOF_I2C_WAIT();
+            current_port_output = durin.hw.port_expander_ouput;
+            durin.info.expander_awaiting_update = 0;
+        }
+        static uint8_t buf[2];
+        expander_read(buf);
+        TOF_I2C_WAIT();
+        durin.hw.port_expander_input = expander_parse(buf);
 
         // update at 15 Hz
         if (esp_timer_get_time() - last_tof_update < 1000000 / 15) {
@@ -99,12 +100,39 @@ void update_tof_and_expander(struct pt *pt) {
                 for (uint8_t src_x = 0; src_x < 8; src_x++) {
                     uint8_t target_x = 7 - src_x;
                     uint8_t target_y = src_y;
-                    durin.telemetry.ranging_data[tof_index][target_x + 8 * target_y] = result.distance_mm[src_x + src_y * 8 ];           
+                    uint8_t status = result.target_status[src_x + src_y * 8];
+                    uint8_t status_bits = 0;
+                    switch (status) {
+                        case 0: // not updated
+                            status_bits = 0b01;
+                            break;
+                        case 5: // valid 
+                            status_bits = 0b00;
+                            break;
+                        case 6:
+                        case 9: // 50% valid
+                            status_bits = 0b11;
+                            break;
+                        default: // invalid
+                            status_bits = 0b10;
+                            break;
+                    }
+                    durin.telemetry.ranging_data[tof_index][target_x + 8 * target_y] = result.distance_mm[src_x + src_y * 8] | (status_bits << 14); 
                 }
             }
         }
     }
     PT_END(pt);
+}
+
+
+//CAN ONLY BE USED IN INIT BEFORE TOF_AND_EXPANDER_UPDATE_IS_RUNNING
+void init_expander_write() {
+    expander_write(durin.hw.port_expander_ouput);
+}
+
+void init_expander_read() {
+
 }
 
 void expander_write(uint16_t output) {
@@ -119,7 +147,8 @@ void expander_write(uint16_t output) {
 
 void expander_read(uint8_t *buf) {
     nbe_i2c_start_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, NULL, buf);
-    nbe_i2c_read(&durin.hw.i2c_tof, 2);
+    nbe_i2c_read_ack(&durin.hw.i2c_tof, 1);
+    nbe_i2c_read_nak(&durin.hw.i2c_tof, 1);
     nbe_i2c_stop(&durin.hw.i2c_tof);
     nbe_i2c_commit(&durin.hw.i2c_tof);
 }

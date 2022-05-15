@@ -182,9 +182,8 @@ static void write_register(icm20948_t *icm, uint8_t bank, uint8_t reg_address, u
 static void read_register(icm20948_t *icm, uint8_t bank, uint8_t reg_address, uint8_t *buf, uint8_t len) {
     nbe_i2c_reset(icm->nbe_i2c);
     nbe_i2c_set_rx_buf(icm->nbe_i2c, buf);
-    uint8_t tmp_buf[3];
-    
-    if (bank != icm->current_bank) {
+    uint8_t tmp_buf[4];
+        if (bank != icm->current_bank) {
         tmp_buf[0] = i2c_first_byte_write(icm->address);
         tmp_buf[1] = ICM20948_REG_BANK_SEL_REG;
         tmp_buf[2] = bank << 4;

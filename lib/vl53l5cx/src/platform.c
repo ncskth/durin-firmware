@@ -171,7 +171,13 @@ uint8_t RdMultiAsync(
 	uint8_t byte = i2c_first_byte_read(p_platform->address);
 	nbe_i2c_write_preamble(p_platform->nbe_i2c, &byte, 1);
 	if (size > 1) {
-		nbe_i2c_read_ack(p_platform->nbe_i2c, size - 1);
+		if (size > 256) {
+			nbe_i2c_read_ack(p_platform->nbe_i2c, 255);
+			nbe_i2c_read_ack(p_platform->nbe_i2c, size - 256);
+
+		} else {
+			nbe_i2c_read_ack(p_platform->nbe_i2c, size - 1);
+		}
 	}
 	nbe_i2c_read_nak(p_platform->nbe_i2c, 1);
 	nbe_i2c_stop(p_platform->nbe_i2c);

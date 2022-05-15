@@ -49,6 +49,7 @@ struct durin_info {
     uint32_t telemetry_udp_address;
     uint16_t telemetry_udp_rate; 
     uint8_t tof_sensor_alive[8];
+    uint8_t expander_awaiting_update;
 };
 
 struct durin_hardware {

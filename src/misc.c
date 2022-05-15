@@ -154,9 +154,9 @@ void update_misc(struct pt *pt) {
 
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
         // float new_battery_voltage = ((float) raw_adc) / 4096 * 3.3 * 5; // 3 for the voltage divider
-        float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0 * (2700.0 + 10000.0) / 2700.0;
+        float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
-        printf("adc %f %f %d\n", durin.telemetry.battery_voltage, ((float) raw_adc) / 4096.0 * 3.3 * (2700.0 + 10000.0) / 2700.0, esp_adc_cal_raw_to_voltage(raw_adc, adc_chars));
+        // printf("adc %f %f %d\n", durin.telemetry.battery_voltage, ((float) raw_adc) / 4096.0 * 3.3 * (2700.0 + 10000.0) / 2700.0, esp_adc_cal_raw_to_voltage(raw_adc, adc_chars));
         PT_YIELD(pt);
     }
     PT_END(pt);
