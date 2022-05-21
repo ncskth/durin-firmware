@@ -107,33 +107,6 @@ int writetospi(uint16_t       headerLength,
     return 0;
 } // end writetospi()
 
-
-
-// /*! ------------------------------------------------------------------------------------------------------------------
-// * @fn spi_cs_low_delay()
-// *
-// * @brief This function sets the CS to '0' for ms delay and than raises it up
-// *
-// * input parameters:
-// * @param ms_delay - The delay for CS to be in '0' state
-// *
-// * no return value
-// */
-// uint16_t spi_cs_low_delay(uint16_t delay_ms)
-// {
-// 	// /* Blocking: Check whether previous transfer has been finished */
-// 	// while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY);
-// 	// /* Process Locked */
-// 	// __HAL_LOCK(&hspi1);
-// 	// HAL_GPIO_WritePin(DW_NSS_GPIO_Port, DW_NSS_Pin, GPIO_PIN_RESET); /**< Put chip select line low */
-// 	// Sleep(delay_ms);
-// 	// HAL_GPIO_WritePin(DW_NSS_GPIO_Port, DW_NSS_Pin, GPIO_PIN_SET); /**< Put chip select line high */
-// 	// /* Process Unlocked */
-// 	// __HAL_UNLOCK(&hspi1);
-
-// 	return 0;
-// }
-
 /*! ------------------------------------------------------------------------------------------------------------------
  * Function: readfromspi()
  *
@@ -148,18 +121,17 @@ int readfromspi(uint16_t  headerLength,
                 uint16_t  readLength,
                 uint8_t   *readBuffer)
 {
-
+    uint8_t rx_buf[headerLength + readLength];
     spi_transaction_t trans = {
         .tx_buffer = headerBuffer,
-        .rx_buffer = readBuffer,
+        .rx_buffer = rx_buf,
         .length = (headerLength + readLength) * 8,
-        .rxlength = readLength * 8,
+        .rxlength = (headerLength + readLength) * 8,
     };
-
     spi_device_acquire_bus(deca_spi_device, ~0);
     spi_device_polling_transmit(deca_spi_device, &trans);
     spi_device_release_bus(deca_spi_device);
-
+    memcpy(readBuffer, rx_buf + headerLength, readLength);
     return 0;
 } // end readfromspi()
 

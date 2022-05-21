@@ -115,20 +115,20 @@ void update_tof_and_expander(struct pt *pt) {
                     uint8_t status_bits = 0;
                     switch (status) {
                         case 0: // not updated
-                            status_bits = 0b01;
+                            status_bits = 0b11;
                             break;
                         case 5: // valid 
                             status_bits = 0b00;
                             break;
                         case 6:
                         case 9: // 50% valid
-                            status_bits = 0b11;
+                            status_bits = 0b01;
                             break;
                         default: // invalid
                             status_bits = 0b10;
                             break;
                     }
-                    durin.telemetry.ranging_data[tof_index][target_x + 8 * target_y] = result.distance_mm[src_x + src_y * 8] | (status_bits << 14); 
+                    durin.telemetry.ranging_data[tof_index][target_x + 8 * target_y] = result.distance_mm[src_x + src_y * 8] | (status_bits << 14);
                 }
             }
         }

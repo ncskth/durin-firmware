@@ -143,7 +143,7 @@ void core1_task(void* arg) {
     init_wifi();
 
     // uwb
-    // init_uwb();
+    init_uwb();
 
     set_led(255, 80, 0);
     for (uint8_t i = 0; i < 8; i++) {
@@ -161,6 +161,7 @@ void core1_task(void* arg) {
 }
 
 void app_main() {
+    durin.info.node_id = 0;
     durin.info.init_finished = 0;
     esp_event_loop_create_default();
 

@@ -3,6 +3,8 @@
 #include "nbe_i2c.h"
 #include "dynamixel.h"
 
+#define NUM_NODES 32
+
 enum control_mode {
     DURIN_MOTOR_VELOCITY,
     DURIN_ROBOT_VELOCITY,
@@ -11,6 +13,7 @@ enum control_mode {
 struct durin_telemetry {
     float battery_voltage;
     uint16_t ranging_data[8][8*8];
+    uint16_t distance_to_node[NUM_NODES];
     int16_t ax, ay, az, gx, gy, gz, mx, my, mz;
     float heading;
     float vx, vy;
@@ -39,7 +42,7 @@ struct durin_control {
 };
 
 struct durin_info {
-    uint8_t robot_id;
+    uint8_t node_id;
     uint64_t cycle_count;
     uint64_t last_message_received;
     uint8_t init_finished;
@@ -50,6 +53,8 @@ struct durin_info {
     uint16_t telemetry_udp_rate; 
     uint8_t tof_sensor_alive[8];
     uint8_t expander_awaiting_update;
+    uint8_t uwb_attempts[NUM_NODES];
+    uint64_t polled_node_at[NUM_NODES];
 };
 
 struct durin_hardware {
