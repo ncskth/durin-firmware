@@ -20,8 +20,10 @@ void expander_read(uint8_t *buf);
 uint16_t expander_parse(uint8_t *buf);
 
 void init_tof_and_expander() {
-    durin.hw.port_expander_ouput = ~0; // everything defaults to 1
-    expander_write(durin.hw.port_expander_ouput);
+    for (uint8_t i = 0; i < 8; i++) {
+        durin.hw.port_expander_output |= 1 << i;
+    }
+    expander_write(durin.hw.port_expander_output);
     TOF_I2C_WAIT_BLOCK();
     
     //reset all
@@ -46,8 +48,8 @@ void init_tof_and_expander() {
 
     for (uint8_t i = 0 ; i < NUM_VL53L5CX; i++) {
         //unreset sensor
-        durin.hw.port_expander_ouput &= ~(1 << (TOF_RESET_START + i));
-        expander_write(durin.hw.port_expander_ouput);
+        durin.hw.port_expander_output &= ~(1 << (TOF_RESET_START + i));
+        expander_write(durin.hw.port_expander_output);
         TOF_I2C_WAIT_BLOCK();
 
         VL53L5CX_Platform platform;
@@ -80,10 +82,10 @@ void update_tof_and_expander(struct pt *pt) {
     last_tof_update = esp_timer_get_time();
     while (1) {
         PT_YIELD(pt);
-        if (current_port_output != durin.hw.port_expander_ouput) {
-            expander_write(durin.hw.port_expander_ouput);
+        if (current_port_output != durin.hw.port_expander_output) {
+            expander_write(durin.hw.port_expander_output);
             TOF_I2C_WAIT();
-            current_port_output = durin.hw.port_expander_ouput;
+            current_port_output = durin.hw.port_expander_output;
             durin.info.expander_awaiting_update = 0;
         }
         static uint8_t buf[2];
@@ -139,7 +141,7 @@ void update_tof_and_expander(struct pt *pt) {
 
 //CAN ONLY BE USED IN INIT BEFORE TOF_AND_EXPANDER_UPDATE_IS_RUNNING
 void init_expander_write() {
-    expander_write(durin.hw.port_expander_ouput);
+    expander_write(durin.hw.port_expander_output);
 }
 
 void init_expander_read() {

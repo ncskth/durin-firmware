@@ -42,13 +42,14 @@ void init_led();
 
 extern icm20948_t icm;
 
-void core0_task(void* arg) {
+void rt_loop(void* arg) {
     struct pt servo_pt;
     struct pt tof_and_expander_pt;
     struct pt misc_pt;
     struct pt imu_pt;
     struct pt uwb_pt;
     struct pt wifi_pt;
+    struct pt tcp_server_pt;
 
     PT_INIT(&servo_pt);
     PT_INIT(&tof_and_expander_pt);
@@ -62,31 +63,37 @@ void core0_task(void* arg) {
     durin.info.cycle_count = 0;
     uint64_t start_time = 0;
     uint64_t end_time = esp_timer_get_time();
+    uint64_t average_time = 0;
     while (1) {
-        uint64_t start_time = end_time;
+        start_time = end_time;
         durin.info.cycle_count += 1;
+        update_tcp_server(&tcp_server_pt);
+
         update_tof_and_expander(&tof_and_expander_pt);
         update_servo(&servo_pt);
         update_misc(&misc_pt);
         update_wifi(&wifi_pt);
         update_imu(&imu_pt);
 
-        // while (end_time < start_time + MAIN_LOOP_PERIOD) {
-        //     end_time = esp_timer_get_time();
-        //     // vTaskDelay(0);
-        // }
-        // vTaskDelay(0);
+        while (end_time < start_time + MAIN_LOOP_PERIOD) {
+            end_time = esp_timer_get_time();
+        }
+        average_time = 0.99 * average_time + (end_time - start_time) * 0.01;
+        if (average_time > MAIN_LOOP_PERIOD * 1.05 && durin.info.cycle_count % 1000 == 0) {
+            printf("loop time %lld\n", average_time);
+        }
     }
     vTaskDelete(NULL);
 }
 
 //run all drivers on core1
 //run main loop on core0
-void core1_task(void* arg) {
+void setup(void* arg) {
     printf("booting\n");
+
     // misc
     init_misc();
-    set_led(0, 0, 200);
+    set_led(BLUE);
 
     // timer
     esp_timer_early_init();
@@ -113,47 +120,39 @@ void core1_task(void* arg) {
     // i2c
     nbe_i2c_init(&durin.hw.i2c_tof, I2C_NUM_TOF, PIN_TOF_SDA, PIN_TOF_SCL, I2C_TOF_HZ);
     nbe_i2c_init(&durin.hw.i2c_imu, I2C_NUM_IMU, PIN_IMU_SDA, PIN_IMU_SCL, I2C_IMU_HZ);
-
-
-    // uart2
-    uart_config_t uart_servo = {
-        .baud_rate = UART_SERVO_BAUD,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-    };
-
-    uart_param_config(UART_SERVO, &uart_servo);
-    uart_set_pin(UART_NUM_2, PIN_UART_SERVO_TX, PIN_UART_SERVO_RX, GPIO_NUM_NC, GPIO_NUM_NC);
-    uart_driver_install(UART_NUM_2, 256, 256, 20, NULL, 0);
     
     // servo
     init_servo();
-    
+
     // init TOF
     init_tof_and_expander();
-
-    init_imu();
-
-    // NVS
-    nvs_flash_init();
 
     // wifi
     init_wifi();
 
-    // uwb
-    init_uwb();
+    init_imu();
 
-    set_led(255, 80, 0);
+    // uwb
+    //init_uwb();
+
+    uint8_t working_tof = 0;
     for (uint8_t i = 0; i < 8; i++) {
         if (durin.info.tof_sensor_alive[i]) {
-            set_led(0, 255, 0);
+            working_tof += 1;
         }
+    }
+
+    if (working_tof == 8) {
+        set_led(YELLOW);
+    }
+    else if (working_tof > 0) {
+        set_led(PINK);
+    } else {
+        set_led(RED);
     }
     durin.info.init_finished = 1;
     printf("init done\n");
-
+    printf("version 10\n");
     // while (1) {
     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
     // }
@@ -165,7 +164,7 @@ void app_main() {
     durin.info.init_finished = 0;
     esp_event_loop_create_default();
 
-    xTaskCreatePinnedToCore(core0_task, "core_0", 4086, NULL, 0, NULL, 0);
-    xTaskCreatePinnedToCore(core1_task, "core_1", 4086 * 2, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(rt_loop, "rt_loop", 4086, NULL, 5, NULL, RT_CORE);
+    xTaskCreatePinnedToCore(setup, "setup", 4086 * 2, NULL, 5, NULL, TRASH_CORE);
     return;
 }

@@ -122,6 +122,7 @@ int readfromspi(uint16_t  headerLength,
                 uint8_t   *readBuffer)
 {
     uint8_t rx_buf[headerLength + readLength];
+    memset(rx_buf, 0, headerLength + readLength);
     spi_transaction_t trans = {
         .tx_buffer = headerBuffer,
         .rx_buffer = rx_buf,
@@ -140,5 +141,3 @@ int readfromspi(uint16_t  headerLength,
  *                              END OF DW1000 SPI section
  *
  *******************************************************************************/
-
-

@@ -2,6 +2,9 @@
 #include <driver/ledc.h>
 #include <driver/adc.h>
 #include <esp_adc_cal.h>
+#include <nvs.h>
+#include <nvs_flash.h>
+#include <string.h>
 
 #include "misc.h"
 #include "hardware.h"
@@ -12,6 +15,17 @@
 #define VOLT_LP_GAIN 0.995
 
 esp_adc_cal_characteristics_t *adc_chars;
+nvs_handle_t durin_nvs;
+
+void update_persistent_data() {
+    nvs_set_blob(durin_nvs, "durin_nvs", &durin_persistent, sizeof(durin_persistent));
+}
+
+void power_off() {
+    gpio_set_level(PIN_3V3_EN, 0);
+    gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_3V3_EN, 0);
+}
 
 void set_led(uint8_t r, uint8_t g, uint8_t b) {
     ledc_set_duty(LED_SPEED_MODE, CHANNEL_LED_R, r);
@@ -23,7 +37,32 @@ void set_led(uint8_t r, uint8_t g, uint8_t b) {
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_B);   
 }
 
+void set_buzzer(uint8_t intensity) {
+    ledc_set_duty(LED_SPEED_MODE, CHANNEL_BUZZER, intensity > 0);
+    ledc_update_duty(LED_SPEED_MODE, CHANNEL_BUZZER);
+}
+
 void init_misc() {
+    durin.hw.port_expander_output = ~0;
+    durin.info.motor_enabled = false;
+    durin.info.user_enabled = false;
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    err = nvs_open("storage", NVS_READWRITE, &durin_nvs);
+    uint len;
+    err = nvs_get_blob(durin_nvs, "durin_nvs", &durin_persistent, &len);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        memcpy(durin_persistent.main_ssid, DEFAULT_SSID, sizeof(DEFAULT_SSID));
+        memcpy(durin_persistent.main_password, DEFAULT_PASSWORD, sizeof(DEFAULT_PASSWORD));
+        durin_persistent.node_id = 255;
+        update_persistent_data();
+    }
+
     gpio_set_direction(PIN_BUTTON_IN, GPIO_MODE_INPUT);
     gpio_set_direction(PIN_VBAT_SENSE_GND, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_VBAT_SENSE_GND, 0);
@@ -125,38 +164,71 @@ void init_misc() {
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_G);
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_B);
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_BUZZER);
+
+    //disable user port
+    durin.hw.port_expander_output &= ~((1 << EX_PIN_USER_EN));
+    durin.info.last_message_received = esp_timer_get_time();
 }
 
 void update_misc(struct pt *pt) {
-    static uint64_t button_last_not_pressed = 0;
-
-    button_last_not_pressed = esp_timer_get_time();
-
     PT_BEGIN(pt);
-
+    static uint64_t pressed_at = 0;
+    static uint64_t pressed_previously = 0;
+    static uint64_t last_action = 0;
+    last_action = esp_timer_get_time();
     while (1) {
         uint64_t current_time = esp_timer_get_time();
-        if (gpio_get_level(PIN_BUTTON_IN) == 0) {
-            button_last_not_pressed = current_time;
+        uint64_t pressed_for;
+        uint8_t released;
+        uint8_t pressed;
+        if (gpio_get_level(PIN_BUTTON_IN)) {
+            released = false;
+            pressed = true;
+            if (!pressed_previously) {
+                pressed_previously = true;
+                pressed_at = current_time;
+            }
+            pressed_for = current_time - pressed_at;
+        } else {
+            pressed = false;
+            if (pressed_previously) {
+                released = true;
+            } else {
+                released = false;
+            }
+            pressed_for = 0;
+            pressed_previously = false;
         }
 
-        if (current_time - button_last_not_pressed > 100) {
+        if (released && current_time - last_action > 1000000) {
             // toggle motor and user en
-            durin.hw.port_expander_ouput ^= (1 << EX_PIN_USER_EN) | (1 << EX_PIN_SERVO_EN); 
+            durin.hw.port_expander_output ^= (1 << EX_PIN_USER_EN);
+            durin.info.motor_enabled = !durin.info.motor_enabled;
+            last_action = current_time;
+            if (durin.hw.port_expander_output & (1 << EX_PIN_USER_EN)) {
+                set_led(GREEN);
+            } else {
+                set_led(YELLOW);
+            }
         }
 
-        if (current_time - button_last_not_pressed > 2000) {
+        if (pressed_for > 1000000) {
             //make the esp kill itself :(
-            gpio_set_level(PIN_3V3_EN, 0);
-            gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
-            gpio_set_level(PIN_3V3_EN, 0);
+            printf("i am dead goodbye! \n");
+            vTaskDelay(100);
+            power_off();
         }
 
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
         // float new_battery_voltage = ((float) raw_adc) / 4096 * 3.3 * 5; // 3 for the voltage divider
         float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
-        // printf("adc %f %f %d\n", durin.telemetry.battery_voltage, ((float) raw_adc) / 4096.0 * 3.3 * (2700.0 + 10000.0) / 2700.0, esp_adc_cal_raw_to_voltage(raw_adc, adc_chars));
+        //5 min
+        if (esp_timer_get_time() - durin.info.last_message_received > 1000000 * 60 * 5) {
+            printf("i am idle goodbye! \n");
+            vTaskDelay(100);
+            power_off();
+        }
         PT_YIELD(pt);
     }
     PT_END(pt);

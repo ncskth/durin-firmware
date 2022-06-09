@@ -3,11 +3,21 @@
 #include "nbe_i2c.h"
 #include "dynamixel.h"
 
+#define GREEN 0,255,0
+#define BLUE 0,0,255
+#define RED 255,0,0
+#define YELLOW 255,80,0
+#define PINK 255, 20, 20
+
+#define DEFAULT_SSID "NCSpeople"
+#define DEFAULT_PASSWORD "peopleNCS"
+
 #define NUM_NODES 32
 
-enum control_mode {
-    DURIN_MOTOR_VELOCITY,
-    DURIN_ROBOT_VELOCITY,
+struct durin_persistent {
+    uint8_t node_id;
+    uint8_t main_ssid[32];
+    uint8_t main_password[64];
 };
 
 struct durin_telemetry {
@@ -24,7 +34,7 @@ struct durin_control {
     float target_vx;
     float target_vy;
     float target_py;
-    enum control_mode control_mode;
+    uint8_t control_id;
     union {
         struct {
             int16_t velocity_x;
@@ -55,12 +65,14 @@ struct durin_info {
     uint8_t expander_awaiting_update;
     uint8_t uwb_attempts[NUM_NODES];
     uint64_t polled_node_at[NUM_NODES];
+    uint8_t motor_enabled;
+    uint8_t user_enabled;
 };
 
 struct durin_hardware {
     nbe_i2c_t i2c_tof;
     nbe_i2c_t i2c_imu;
-    uint16_t port_expander_ouput;
+    uint16_t port_expander_output;
     uint16_t port_expander_input;
     dynamixel_t dx;
 };
@@ -73,3 +85,4 @@ struct durin {
 };
 
 extern volatile struct durin durin;
+extern volatile struct durin_persistent durin_persistent;

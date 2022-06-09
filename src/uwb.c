@@ -2,6 +2,7 @@
 #include "deca_device_api.h"
 #include "durin.h"
 #include "deca_regs.h"
+#include "hardware.h"
 
 #include <freertos/semphr.h>
 #include <string.h>
@@ -42,6 +43,11 @@ struct uwb_response_msg {
 };
 
 static void uwb_rx_ok_callback(const dwt_cb_data_t *data);
+static void uwb_tx_done_callback(const dwt_cb_data_t *data);
+
+static void simple_receiver();
+static void simple_sender();
+
 static void uwb_poll_node(uint8_t node);
 static void uwb_task();
 
@@ -85,16 +91,17 @@ void init_uwb() {
     dwt_setrxtimeout(RX_TIMEOUT);
 
     dwt_setlnapamode(DWT_LNA_ENABLE | DWT_PA_ENABLE);
-    dwt_setcallbacks(uwb_rx_ok_callback, uwb_rx_ok_callback, uwb_rx_ok_callback, uwb_rx_ok_callback, uwb_rx_ok_callback, uwb_rx_ok_callback);
+    dwt_setcallbacks(uwb_tx_done_callback, uwb_rx_ok_callback, NULL, NULL, NULL, NULL);
 
-    xTaskCreatePinnedToCore(uwb_task, "uwb_task", 4096, NULL, configMAX_PRIORITIES - 1, NULL, 1);
+    xTaskCreatePinnedToCore(uwb_task, "uwb_task", 4096, NULL, configMAX_PRIORITIES - 1, NULL, TRASH_CORE);
 }
 
 void uwb_task() {
     uint32_t last_poll = esp_timer_get_time();
     while (1) {
         vTaskDelay(1);
-        dwt_isr();
+        //dwt_isr();
+
         if (esp_timer_get_time() - last_poll > 1000000) {
             last_poll = esp_timer_get_time();
             uwb_poll_node(0);
@@ -128,6 +135,10 @@ uint64_t get_rx_timestamp_u64(void)
         ts |= ts_tab[i];
     }
     return ts;
+}
+
+static void uwb_tx_done_callback(const dwt_cb_data_t *data) {
+    printf("done callback\n");
 }
 
 static void uwb_rx_ok_callback(const dwt_cb_data_t *data) {
@@ -202,23 +213,112 @@ static void uwb_rx_ok_callback(const dwt_cb_data_t *data) {
 }
 
 static void uwb_poll_node(uint8_t node) {
-    printf("poll\n");
+    printf("poll2\n");
     struct uwb_poll_msg msg;
+    uint32_t reg;
     msg.sender = durin.info.node_id;
     msg.receiver = node;
     memcpy(msg.header, "drn", 3);
     msg.msg_type = UWB_MSG_POLL_RANGING;
 
-    dwt_setrxaftertxdelay(RX_TX_DELAY);
+    dwt_setrxaftertxdelay(0);
     dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
     dwt_writetxdata(sizeof(msg), &msg, 0); /* Zero offset in TX buffer. */
     dwt_writetxfctrl(sizeof(msg), 0, 1); /* Zero offset in TX buffer, ranging. */
     /* Start transmission, indicating that a response is expected so that reception is enabled automatically after the frame is sent and the delay
         * set by dwt_setrxaftertxdelay() has elapsed. */
+    reg = dwt_read32bitreg(SYS_STATUS_ID);
+    printf("reg 1 %d\n", reg);
+
     dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
     while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK)) {
         vTaskDelay(1);
     }
+    reg = dwt_read32bitreg(SYS_STATUS_ID);
+    printf("reg 2 %d\n", reg);
+
     dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
+    reg = dwt_read32bitreg(SYS_STATUS_ID);
+    printf("reg 3 %d\n", reg);
     durin.info.polled_node_at[node] = dwt_readtxtimestamplo32();
 }
+
+
+
+
+
+
+
+
+
+static void simple_receiver() {
+    while (1)
+    {
+        vTaskDelay(1);
+        uint32_t status_reg;
+        uint32_t frame_len;
+        uint8_t buf[64];
+        /* Activate reception immediately. See NOTE 2 below. */
+        dwt_rxenable(DWT_START_RX_IMMEDIATE);
+
+        /* Poll until a frame is properly received or an error/timeout occurs. See NOTE 3 below.
+         * STATUS register is 5 bytes long but, as the event we are looking at is in the first byte of the register, we can use this simplest API
+         * function to access it. */
+        while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG_BIT_MASK | SYS_STATUS_ALL_RX_ERR )))
+        {vTaskDelay(500); printf("waiting\n"); };
+
+        if (status_reg & SYS_STATUS_RXFCG_BIT_MASK)
+        {
+            /* A frame has been received, copy it to our local buffer. */
+            frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFLEN_BIT_MASK;
+            if (frame_len <= 64)
+            {
+                dwt_readrxdata(buf, frame_len-FCS_LEN, 0); /* No need to read the FCS/CRC. */
+            }
+
+            /* Clear good RX frame event in the DW IC status register. */
+            dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG_BIT_MASK);
+            printf("got message\n");
+
+        }
+        else
+        {
+            printf("error in receivin\n");
+            /* Clear RX error events in the DW IC status register. */
+            dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+        }
+    }
+}
+
+static void simple_sender() {
+    while(1)
+    {
+        uint8_t msg[] = "hello!\n";
+        /* Write frame data to DW IC and prepare transmission. See NOTE 3 below.*/
+        dwt_writetxdata(8-FCS_LEN, msg, 0); /* Zero offset in TX buffer. */
+
+        /* In this example since the length of the transmitted frame does not change,
+         * nor the other parameters of the dwt_writetxfctrl function, the
+         * dwt_writetxfctrl call could be outside the main while(1) loop.
+         */
+        dwt_writetxfctrl(8, 0, 0); /* Zero offset in TX buffer, no ranging. */
+
+        /* Start transmission. */
+        dwt_starttx(DWT_START_TX_IMMEDIATE);
+        /* Poll DW IC until TX frame sent event set. See NOTE 4 below.
+         * STATUS register is 4 bytes long but, as the event we are looking at is in the first byte of the register, we can use this simplest API
+
+         * function to access it.*/
+        while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK))
+        { };
+
+        /* Clear TX frame sent event. */
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
+
+        /* Execute a delay between transmissions. */
+        printf("sent\n");
+        vTaskDelay(500);
+    }    
+}
+
+
