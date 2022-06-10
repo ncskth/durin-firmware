@@ -3,6 +3,11 @@ Firmware for durin.
 uses platformio to build and upload. It's probably a bad practice but you can download it with pip. otherwise see their documentation
 All durins will configure mDNS so using ```durin[id].local``` as the IP should work
 
+### set wifi config
+Durin can connect to two networks, One is hard coded to ```SSID: peopleNCS password: NCSpeople``` and the other is dynamic. To set the dynamic one use
+
+```python durin_configurator/main.py [DURIN IP] -wifi [ssid] [password]```
+
 ### set node id
 sets the node id. used for mDNS and beacon
 
