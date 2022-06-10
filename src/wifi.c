@@ -174,27 +174,7 @@ void update_wifi(struct pt *pt) {
         uint8_t buf[512];
         int16_t len;
 
-        // int e;
-
-        // len = package_misc(buf);
-        // e = sendto(udp_client_socket_id, buf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        // // printf("udp return %d\n", e);
-
-        // len = package_tof(buf, 1);
-        // e = sendto(udp_client_socket_id, buf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        // // printf("udp return %d\n", e);
-
-        // len = package_tof(buf, 2);
-        // e = sendto(udp_client_socket_id, buf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        // // printf("udp return %d\n", e);
-
-        // len = package_tof(buf, 3);
-        // e = sendto(udp_client_socket_id, buf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        // // printf("udp return %d\n", e);
-
-        // len = package_tof(buf, 4);
-        // e = sendto(udp_client_socket_id, buf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        // // printf("udp return %d\n", e);
+        int e;
 
         buf[0] = prot_id_acknowledge;
         sendto(udp_client_socket_id, buf, 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
@@ -275,17 +255,21 @@ void update_tcp_server(struct pt *pt) {
         }
         static int client_socket = -1;
         client_socket = accept(tcp_server_socket_id,(struct sockaddr *)&remote_addr, &socklen);
+        
         if (client_socket < 0) {
             // printf("no client\n");            
             PT_YIELD(pt);
             continue;
         }
+        fcntl(udp_client_socket_id, F_SETFL, O_NONBLOCK); // this doesn't work lmao, gotta use MSG_DONTWAIT
 
         // printf("new client\n");
         // handle client loop
         protocol_state.state = 0;
         while (1) {
-            int bytes_received = recv(client_socket, rx_buf, sizeof(rx_buf), 0);
+            int flags = fcntl(client_socket, F_GETFL);
+            int bytes_received = recv(client_socket, rx_buf, sizeof(rx_buf) - 1, MSG_DONTWAIT);
+
             //no bytes available
             if (bytes_received < 0 ) {
                 if (errno == ERR_WOULDBLOCK) {
@@ -296,10 +280,10 @@ void update_tcp_server(struct pt *pt) {
                     break;
                 }
 
-                vTaskDelay(WIFI_DELAY_NO_BYTES / portTICK_PERIOD_MS);
+                PT_YIELD(pt);
                 continue;
             }
-            if (bytes_received > 0) {;
+            if (bytes_received > 0) {
                 // printf("WIFI got %d bytes\n", bytes_received);
                 for (uint16_t i = 0; i < bytes_received; i++) {
                     uint16_t should_respond = protocol_parse_byte(&protocol_state, rx_buf[i]);
