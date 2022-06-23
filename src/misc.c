@@ -12,10 +12,24 @@
 #include "esp_timer.h"
 
 #define DEFAULT_VREF 1100 
-#define VOLT_LP_GAIN 0.995
+#define VOLT_LP_GAIN 0.9995
+
+#define RAW
+
+#ifdef RAW
+#define BAT_K 5.45
+#define BAT_M 0.232
+#endif
+
+#ifdef AMP
+#define BAT_K ((2.2 + 0.47) / 0.47)
+#define BAT_M 0
+#endif
+
 
 esp_adc_cal_characteristics_t *adc_chars;
 nvs_handle_t durin_nvs;
+static uint64_t power_off_when = 0;
 
 void update_persistent_data() {
     nvs_set_blob(durin_nvs, "durin_nvs", &durin_persistent, sizeof(durin_persistent));
@@ -25,6 +39,10 @@ void power_off() {
     gpio_set_level(PIN_3V3_EN, 0);
     gpio_set_direction(PIN_3V3_EN, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_3V3_EN, 0);
+}
+
+void power_off_in(uint64_t delay) {
+    power_off_when = esp_timer_get_time() + delay;
 }
 
 void set_led(uint8_t r, uint8_t g, uint8_t b) {
@@ -168,6 +186,19 @@ void init_misc() {
     //disable user port
     durin.hw.port_expander_output &= ~((1 << EX_PIN_USER_EN));
     durin.info.last_message_received = esp_timer_get_time();
+
+
+    uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
+    float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
+    new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
+    durin.telemetry.battery_voltage = new_battery_voltage;
+
+    for (uint8_t i = 0; i < 100; i++) {
+        uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
+        float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
+        new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
+        durin.telemetry.battery_voltage = new_battery_voltage * (1 - 0.99) + durin.telemetry.battery_voltage * 0.99;
+    }
 }
 
 void update_misc(struct pt *pt) {
@@ -176,6 +207,7 @@ void update_misc(struct pt *pt) {
     static uint64_t pressed_previously = 0;
     static uint64_t last_action = 0;
     last_action = esp_timer_get_time();
+
     while (1) {
         uint64_t current_time = esp_timer_get_time();
         uint64_t pressed_for;
@@ -220,12 +252,19 @@ void update_misc(struct pt *pt) {
         }
 
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
-        // float new_battery_voltage = ((float) raw_adc) / 4096 * 3.3 * 5; // 3 for the voltage divider
         float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
+        new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
+        // printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
-        //5 min
-        if (esp_timer_get_time() - durin.info.last_message_received > 1000000 * 60 * 5) {
-            printf("i am idle goodbye! \n");
+
+        if (power_off_when && esp_timer_get_time() > power_off_when) {
+            printf("power off in\n");
+            vTaskDelay(100);
+            power_off();
+        }
+
+        if (durin.telemetry.battery_voltage < 6.9) {
+            printf("no battery\n");
             vTaskDelay(100);
             power_off();
         }

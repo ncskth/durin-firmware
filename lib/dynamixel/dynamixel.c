@@ -111,6 +111,13 @@ static void dx_send_packet(dynamixel_t *dx, uint8_t id, uint8_t inst, uint8_t *b
     crc = update_crc(crc, buf, len);
     uint8_t crc_buf[] = {(crc & 0x0F), (crc & 0xF0) >> 8};
     dx_send_buf(dx, &crc, sizeof(crc_buf));
+    
+    
+    // uint8_t out_buf[len + sizeof(header) + sizeof(crc_buf)];
+    // memcpy(out_buf, header, sizeof(header));
+    // memcpy(out_buf + sizeof(header), buf, len);
+    // memcpy(out_buf + sizeof(header) + len, crc_buf, 2);
+    // dx_send_buf(dx, out_buf, len + sizeof(header) + sizeof(crc_buf));
 }
 
 void dx_init(dynamixel_t *dx, uint8_t uart_num) {
@@ -205,8 +212,9 @@ void dx_parse_byte(dynamixel_t *dx, uint8_t byte) {
             break;
         
         default:
-            //wtf this is impossible
             dx->state = DX_STATE_HEADER_0;
+        
+        //TODO: actually use the data
     }
 }
 

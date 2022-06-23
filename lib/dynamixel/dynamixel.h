@@ -6,6 +6,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <driver/uart.h>
+#include <string.h>
 
 #define DX_ID_BROADCAST 254
 

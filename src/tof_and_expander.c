@@ -25,15 +25,6 @@ void init_tof_and_expander() {
     }
     expander_write(durin.hw.port_expander_output);
     TOF_I2C_WAIT_BLOCK();
-    
-    //reset all
-    /* already 1 
-    for (uint8_t i = 0; i < NUM_VL53L5CX; i++) {
-        durin.hw.port_expander_ouput |= 1 << (TOF_RESET_START + i);
-    }
-    expander_write(durin.hw.port_expander_ouput);
-    TOF_I2C_WAIT_BLOCK();
-    */
 
     VL53L5CX_Platform platform;
     platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
@@ -63,6 +54,7 @@ void init_tof_and_expander() {
             // printf("dead tof sensor with index %d\n", i);
             continue;
         }
+        printf("starting TOF %d\n", i);
         durin.info.tof_sensor_alive[i] = 1;
         vl53l5cx_init(&tof_sensors[i]);
         vl53l5cx_set_ranging_mode(&tof_sensors[i], VL53L5CX_RANGING_MODE_CONTINUOUS);

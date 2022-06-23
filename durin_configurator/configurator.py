@@ -144,4 +144,4 @@ if success and args.verify:
     else:
         print("updated!")
 
-
+s.close()

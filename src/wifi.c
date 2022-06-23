@@ -35,7 +35,7 @@ wifi_config_t wifi_config = {
         },
         .rm_enabled = 1,
         .btm_enabled = 1,
-    }
+    },
 };
 
 uint8_t volt_to_percent(float volt) {
@@ -190,7 +190,7 @@ void update_wifi(struct pt *pt) {
             .mx = durin.telemetry.mx,
             .my = durin.telemetry.my,
             .mz = durin.telemetry.mz,
-            .battery_voltage_mv = durin.telemetry.battery_voltage / 1000,
+            .battery_voltage_mv = durin.telemetry.battery_voltage * 1000,
             .charge_percent = volt_to_percent(durin.telemetry.battery_voltage)
         };
 
@@ -267,7 +267,6 @@ void update_tcp_server(struct pt *pt) {
         // handle client loop
         protocol_state.state = 0;
         while (1) {
-            int flags = fcntl(client_socket, F_GETFL);
             int bytes_received = recv(client_socket, rx_buf, sizeof(rx_buf) - 1, MSG_DONTWAIT);
 
             //no bytes available
@@ -277,6 +276,7 @@ void update_tcp_server(struct pt *pt) {
                     continue;
                 }
                 if (errno == ENOTCONN) {
+                    close(client_socket);
                     break;
                 }
 
@@ -311,7 +311,7 @@ void update_tcp_server(struct pt *pt) {
                             .mx = durin.telemetry.mx,
                             .my = durin.telemetry.my,
                             .mz = durin.telemetry.mz,
-                            .battery_voltage_mv = durin.telemetry.battery_voltage / 1000,
+                            .battery_voltage_mv = durin.telemetry.battery_voltage * 1000,
                             .charge_percent = volt_to_percent(durin.telemetry.battery_voltage)
                         };
                         prot_build_misc(tx_buf + 1, data);

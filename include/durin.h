@@ -12,7 +12,7 @@
 #define DEFAULT_SSID "NCSpeople"
 #define DEFAULT_PASSWORD "peopleNCS"
 
-#define NUM_NODES 32
+#define NUM_NODES 6
 
 struct durin_persistent {
     uint8_t node_id;
@@ -52,7 +52,6 @@ struct durin_control {
 };
 
 struct durin_info {
-    uint8_t node_id;
     uint64_t cycle_count;
     uint64_t last_message_received;
     uint8_t init_finished;
@@ -64,9 +63,10 @@ struct durin_info {
     uint8_t tof_sensor_alive[8];
     uint8_t expander_awaiting_update;
     uint8_t uwb_attempts[NUM_NODES];
-    uint64_t polled_node_at[NUM_NODES];
     uint8_t motor_enabled;
     uint8_t user_enabled;
+    uint8_t failed_node_polls[NUM_NODES];
+    bool stationary;
 };
 
 struct durin_hardware {

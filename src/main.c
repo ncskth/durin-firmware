@@ -59,7 +59,6 @@ void rt_loop(void* arg) {
     PT_INIT(&wifi_pt);
 
     while (!durin.info.init_finished) {vTaskDelay(1000 / portTICK_PERIOD_MS);}
-
     durin.info.cycle_count = 0;
     uint64_t start_time = 0;
     uint64_t end_time = esp_timer_get_time();
@@ -68,7 +67,6 @@ void rt_loop(void* arg) {
         start_time = end_time;
         durin.info.cycle_count += 1;
         update_tcp_server(&tcp_server_pt);
-
         update_tof_and_expander(&tof_and_expander_pt);
         update_servo(&servo_pt);
         update_misc(&misc_pt);
@@ -120,7 +118,7 @@ void setup(void* arg) {
     // i2c
     nbe_i2c_init(&durin.hw.i2c_tof, I2C_NUM_TOF, PIN_TOF_SDA, PIN_TOF_SCL, I2C_TOF_HZ);
     nbe_i2c_init(&durin.hw.i2c_imu, I2C_NUM_IMU, PIN_IMU_SDA, PIN_IMU_SCL, I2C_IMU_HZ);
-    
+
     // servo
     init_servo();
 
@@ -133,7 +131,7 @@ void setup(void* arg) {
     init_imu();
 
     // uwb
-    //init_uwb();
+    // init_uwb();
 
     uint8_t working_tof = 0;
     for (uint8_t i = 0; i < 8; i++) {
@@ -160,7 +158,6 @@ void setup(void* arg) {
 }
 
 void app_main() {
-    durin.info.node_id = 0;
     durin.info.init_finished = 0;
     esp_event_loop_create_default();
 

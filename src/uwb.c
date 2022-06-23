@@ -8,22 +8,30 @@
 #include <string.h>
 #include <stdint.h>
 
-#define RANGING_POLL_EVERY 100
+#define RANGING_DELAY 1000000 //10ms
+#define RANGING_RANDOM_DELAY 2000.0 //2ms
 
 /* Default antenna delay values for 64 MHz PRF. */
 #define TX_ANT_DLY 16385
 #define RX_ANT_DLY 16385
-#define SPEED_OF_LIGHT (299792458*1000)
+#define SPEED_OF_LIGHT (299792458)
 #define RX_TX_DELAY 2600 //more than 2ms because of free rtos...
-#define RX_TIMEOUT 3000
 
 #define UUS_TO_DWT_TIME 63898
+
+#define PRINT_REG(reg) {\
+    for (uint8_t i = 0; i < 32; i++) {\
+        printf("%d:%d,", i, (reg >> i) & 1);\
+    } printf("\n");\
+}\
 
 enum uwb_msg_types {
     UWB_MSG_POLL_RANGING,
     UWB_MSG_RESPONSE_RANGING
 };
 
+
+// i don't use these but they are my source of truth so to say
 #pragma pack(1)
 struct uwb_poll_msg {
     char header[3]; //{'d','r','n'}
@@ -31,7 +39,7 @@ struct uwb_poll_msg {
     uint8_t sender;
     uint8_t receiver;
 };
- 
+
 #pragma pack(1)
 struct uwb_response_msg {
     char header[3];
@@ -42,14 +50,13 @@ struct uwb_response_msg {
     uint64_t tx_timestamp;
 };
 
-static void uwb_rx_ok_callback(const dwt_cb_data_t *data);
-static void uwb_tx_done_callback(const dwt_cb_data_t *data);
-
-static void simple_receiver();
-static void simple_sender();
-
 static void uwb_poll_node(uint8_t node);
+static void uwb_parse_message();
 static void uwb_task();
+static uint64_t get_tx_timestamp_u64(void);
+static uint64_t get_rx_timestamp_u64(void);
+
+uint64_t polled_node_at[NUM_NODES];
 
 void init_uwb() {
     while (!dwt_checkidlerc()) {}
@@ -58,7 +65,7 @@ void init_uwb() {
     }
     
     dwt_config_t config = {
-        5,               /* Channel number. */
+        9,               /* Channel number. */
         DWT_PLEN_128,    /* Preamble length. Used in TX only. */
         DWT_PAC8,        /* Preamble acquisition chunk size. Used in RX only. */
         9,               /* TX preamble code. Used in TX only. */
@@ -88,28 +95,41 @@ void init_uwb() {
     dwt_setrxantennadelay(RX_ANT_DLY);
     dwt_settxantennadelay(TX_ANT_DLY);
 
-    dwt_setrxtimeout(RX_TIMEOUT);
-
     dwt_setlnapamode(DWT_LNA_ENABLE | DWT_PA_ENABLE);
-    dwt_setcallbacks(uwb_tx_done_callback, uwb_rx_ok_callback, NULL, NULL, NULL, NULL);
+
+    dwt_setrxtimeout(0);
+    dwt_setpreambledetecttimeout(0);
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+
+    // dwt_setcallbacks(uwb_tx_done_callback, uwb_rx_ok_callback, uwb_rx_to_callback, uwb_rx_err_callback, uwb_spi_err_callback, uwb_spi_rdy_callback);
 
     xTaskCreatePinnedToCore(uwb_task, "uwb_task", 4096, NULL, configMAX_PRIORITIES - 1, NULL, TRASH_CORE);
 }
 
 void uwb_task() {
-    uint32_t last_poll = esp_timer_get_time();
+    uint64_t last_poll = esp_timer_get_time();
+    uint8_t poll_node = 0;
+    uint64_t random_delay = 0;
     while (1) {
-        vTaskDelay(1);
-        //dwt_isr();
-
-        if (esp_timer_get_time() - last_poll > 1000000) {
-            last_poll = esp_timer_get_time();
-            uwb_poll_node(0);
+        if (dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_RXFCG_BIT_MASK) {
+            printf("got msg222");
+            uwb_parse_message(); // this function can take up to 2ms because of delayed tx
+            dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG_BIT_MASK); // clear bit
+            dwt_rxenable(DWT_START_RX_IMMEDIATE);
         }
+        if (esp_timer_get_time() - last_poll > RANGING_DELAY + random_delay) {
+            last_poll = esp_timer_get_time();
+            poll_node = (poll_node + 1) % NUM_NODES;
+            dwt_forcetrxoff();
+            uwb_poll_node(poll_node);
+            dwt_rxenable(DWT_START_RX_IMMEDIATE);
+            random_delay = (RANGING_RANDOM_DELAY * esp_random()) / UINT32_MAX;
+        }
+        vTaskDelay(1);
     }
 }
 
-uint64_t get_tx_timestamp_u64(void)
+static uint64_t get_tx_timestamp_u64(void)
 {
     uint8_t ts_tab[5];
     uint64_t ts = 0;
@@ -123,7 +143,7 @@ uint64_t get_tx_timestamp_u64(void)
     return ts;
 }
 
-uint64_t get_rx_timestamp_u64(void)
+static uint64_t get_rx_timestamp_u64(void)
 {
     uint8_t ts_tab[5];
     uint64_t ts = 0;
@@ -137,47 +157,85 @@ uint64_t get_rx_timestamp_u64(void)
     return ts;
 }
 
-static void uwb_tx_done_callback(const dwt_cb_data_t *data) {
-    printf("done callback\n");
+static void uwb_poll_node(uint8_t node) {
+    printf("poll node %d\n", node);
+    uint8_t tx_buf[32];
+    uint32_t reg;
+    durin.info.failed_node_polls[node] += 1;
+    memcpy(tx_buf, "drn", 3);
+    tx_buf[3] = UWB_MSG_POLL_RANGING;
+    tx_buf[4] = durin_persistent.node_id;
+    tx_buf[5] = node;
+    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK); //clear bit
+    dwt_writetxdata(6, tx_buf, 0); /* Zero offset in TX buffer. */
+    dwt_writetxfctrl(6 + 2, 0, 1); /* Zero offset in TX buffer, ranging. */
+    uint8_t ret = dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
+
+    //wait untill done
+    while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK)) {
+        vTaskDelay(1);
+    }
+    polled_node_at[node] = dwt_readtxtimestamplo32();
 }
 
-static void uwb_rx_ok_callback(const dwt_cb_data_t *data) {
+static void uwb_parse_message() {
     printf("got msg\n");
     uint8_t rx_buf[32];
-    if (data->datalength > sizeof(rx_buf)) {
+    uint8_t tx_buf[32];
+
+    uint32_t length = dwt_read32bitreg(RX_FINFO_ID) & RX_BUFFER_MAX_LEN;
+    printf("length %d\n", length);
+    if (length > sizeof(rx_buf)) {
+        printf("too long\n");
         return;
     }
-    dwt_readrxdata(rx_buf, data->datalength, 0);
+
+    dwt_readrxdata(rx_buf, length, 0);
+    printf("begin\n");
+    for (uint8_t i = 0; i < length; i++) {
+        printf("lol %d\n", rx_buf[i]);
+    }
+    printf("end\n");
+
+
     if (memcmp(rx_buf, "drn", 3) != 0) {
+        printf("invalid header\n");
         return;
     }
     uint8_t msg_type = rx_buf[3];
     uint8_t sender = rx_buf[4];
     uint8_t receiver = rx_buf[5];
-    if (receiver != durin.info.node_id) {
+    if (sender >= NUM_NODES || receiver >= NUM_NODES) {
+        printf("invalid sender or receiver %d %d\n", sender, receiver);
         return;
     }
+    
+    if (receiver != durin_persistent.node_id) {
+        // printf("Not for me but for %d i am %d\n", receiver, durin_persistent.node_id);
+        return;
+    }
+
     if (msg_type == UWB_MSG_POLL_RANGING) {
-        printf("got poll\n");
+        // printf("got poll\n");
         uint64_t poll_rx_ts = get_rx_timestamp_u64();
         uint64_t resp_tx_time = (poll_rx_ts + (RX_TX_DELAY * UUS_TO_DWT_TIME)) >> 8;
-        dwt_setdelayedtrxtime(resp_tx_time);
         uint64_t resp_tx_ts = (((uint64_t)(resp_tx_time & 0xFFFFFFFEUL)) << 8) + TX_ANT_DLY;
-        struct uwb_response_msg resp_msg;
-        memcpy(resp_msg.header, "drn", 3);
-        resp_msg.msg_type = UWB_MSG_RESPONSE_RANGING;
-        resp_msg.receiver = sender;
-        resp_msg.sender = durin.info.node_id;
-        resp_msg.rx_timestamp = poll_rx_ts;
-        resp_msg.tx_timestamp = resp_tx_ts;
-        dwt_writetxdata(sizeof(resp_msg), &resp_msg, 0); /* Zero offset in TX buffer. */
-        dwt_writetxfctrl(sizeof(resp_msg), 0, 1); /* Zero offset in TX buffer, ranging. */
+        memcpy(tx_buf, "drn", 3);
+        tx_buf[3] = UWB_MSG_RESPONSE_RANGING;
+        tx_buf[4] = durin_persistent.node_id;
+        tx_buf[5] = sender;
+        memcpy(tx_buf + 6, &poll_rx_ts, 4);
+        memcpy(tx_buf + 10, &resp_tx_ts, 4);
+
+        dwt_writetxdata(14, tx_buf, 0); /* Zero offset in TX buffer. */
+        dwt_writetxfctrl(14 + 2, 0, 1); /* Zero offset in TX buffer, ranging. */
+        dwt_setdelayedtrxtime(resp_tx_time);
+
+        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
         uint8_t ret = dwt_starttx(DWT_START_TX_DELAYED);
-        if (ret == DWT_SUCCESS) {
-            while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK)) {
-                vTaskDelay(1);
-            }
-            dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
+        
+        while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK)) {
+            vTaskDelay(1);
         }
     }
     else if (msg_type == UWB_MSG_RESPONSE_RANGING) {
@@ -186,139 +244,28 @@ static void uwb_rx_ok_callback(const dwt_cb_data_t *data) {
         int32_t rtd_init, rtd_resp;
         float clockOffsetRatio ;
 
-        /* Retrieve poll transmission and response reception timestamps. See NOTE 9 below. */
-        poll_tx_ts = dwt_readtxtimestamplo32();
-        resp_rx_ts = dwt_readrxtimestamplo32();
-
         /* Read carrier integrator value and calculate clock offset ratio. See NOTE 11 below. */
         clockOffsetRatio = ((float)dwt_readclockoffset()) / (uint32_t)(1<<26);
 
         /* Get timestamps embedded in response message. */
-        struct uwb_response_msg *msg;
-        msg = rx_buf;
-        poll_rx_ts = msg->rx_timestamp;
-        resp_tx_ts = msg->tx_timestamp;
+        memcpy(&poll_rx_ts, rx_buf + 6, 4);
+        memcpy(&resp_tx_ts, rx_buf + 10, 4);
+    
+        // poll_tx_ts = dwt_readtxtimestamplo32();
+        poll_tx_ts = polled_node_at[sender]; // use saved timestamp because another message could have come before this
+        resp_rx_ts = dwt_readrxtimestamplo32();
 
         /* Compute time of flight and distance, using clock offset ratio to correct for differing local and remote clock rates */
         rtd_init = resp_rx_ts - poll_tx_ts;
         rtd_resp = resp_tx_ts - poll_rx_ts;
 
-        //not hardware accelerated but what can a man do
+        // not hardware accelerated but what can a man do
         double tof = ((rtd_init - rtd_resp * (1 - clockOffsetRatio)) / 2.0) * DWT_TIME_UNITS;
-        durin.telemetry.distance_to_node[sender] = tof * SPEED_OF_LIGHT;
+        durin.telemetry.distance_to_node[sender] = 1000 * tof * SPEED_OF_LIGHT;
+        printf("distance %f\n", tof * SPEED_OF_LIGHT);
+        //printf("ts %d %d %d %d\n", poll_tx_ts, resp_rx_ts, poll_rx_ts, resp_tx_ts);
     }  
     else {
 
-    }       
-}
-
-static void uwb_poll_node(uint8_t node) {
-    printf("poll2\n");
-    struct uwb_poll_msg msg;
-    uint32_t reg;
-    msg.sender = durin.info.node_id;
-    msg.receiver = node;
-    memcpy(msg.header, "drn", 3);
-    msg.msg_type = UWB_MSG_POLL_RANGING;
-
-    dwt_setrxaftertxdelay(0);
-    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
-    dwt_writetxdata(sizeof(msg), &msg, 0); /* Zero offset in TX buffer. */
-    dwt_writetxfctrl(sizeof(msg), 0, 1); /* Zero offset in TX buffer, ranging. */
-    /* Start transmission, indicating that a response is expected so that reception is enabled automatically after the frame is sent and the delay
-        * set by dwt_setrxaftertxdelay() has elapsed. */
-    reg = dwt_read32bitreg(SYS_STATUS_ID);
-    printf("reg 1 %d\n", reg);
-
-    dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
-    while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK)) {
-        vTaskDelay(1);
-    }
-    reg = dwt_read32bitreg(SYS_STATUS_ID);
-    printf("reg 2 %d\n", reg);
-
-    dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
-    reg = dwt_read32bitreg(SYS_STATUS_ID);
-    printf("reg 3 %d\n", reg);
-    durin.info.polled_node_at[node] = dwt_readtxtimestamplo32();
-}
-
-
-
-
-
-
-
-
-
-static void simple_receiver() {
-    while (1)
-    {
-        vTaskDelay(1);
-        uint32_t status_reg;
-        uint32_t frame_len;
-        uint8_t buf[64];
-        /* Activate reception immediately. See NOTE 2 below. */
-        dwt_rxenable(DWT_START_RX_IMMEDIATE);
-
-        /* Poll until a frame is properly received or an error/timeout occurs. See NOTE 3 below.
-         * STATUS register is 5 bytes long but, as the event we are looking at is in the first byte of the register, we can use this simplest API
-         * function to access it. */
-        while (!((status_reg = dwt_read32bitreg(SYS_STATUS_ID)) & (SYS_STATUS_RXFCG_BIT_MASK | SYS_STATUS_ALL_RX_ERR )))
-        {vTaskDelay(500); printf("waiting\n"); };
-
-        if (status_reg & SYS_STATUS_RXFCG_BIT_MASK)
-        {
-            /* A frame has been received, copy it to our local buffer. */
-            frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFLEN_BIT_MASK;
-            if (frame_len <= 64)
-            {
-                dwt_readrxdata(buf, frame_len-FCS_LEN, 0); /* No need to read the FCS/CRC. */
-            }
-
-            /* Clear good RX frame event in the DW IC status register. */
-            dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG_BIT_MASK);
-            printf("got message\n");
-
-        }
-        else
-        {
-            printf("error in receivin\n");
-            /* Clear RX error events in the DW IC status register. */
-            dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-        }
     }
 }
-
-static void simple_sender() {
-    while(1)
-    {
-        uint8_t msg[] = "hello!\n";
-        /* Write frame data to DW IC and prepare transmission. See NOTE 3 below.*/
-        dwt_writetxdata(8-FCS_LEN, msg, 0); /* Zero offset in TX buffer. */
-
-        /* In this example since the length of the transmitted frame does not change,
-         * nor the other parameters of the dwt_writetxfctrl function, the
-         * dwt_writetxfctrl call could be outside the main while(1) loop.
-         */
-        dwt_writetxfctrl(8, 0, 0); /* Zero offset in TX buffer, no ranging. */
-
-        /* Start transmission. */
-        dwt_starttx(DWT_START_TX_IMMEDIATE);
-        /* Poll DW IC until TX frame sent event set. See NOTE 4 below.
-         * STATUS register is 4 bytes long but, as the event we are looking at is in the first byte of the register, we can use this simplest API
-
-         * function to access it.*/
-        while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS_BIT_MASK))
-        { };
-
-        /* Clear TX frame sent event. */
-        dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS_BIT_MASK);
-
-        /* Execute a delay between transmissions. */
-        printf("sent\n");
-        vTaskDelay(500);
-    }    
-}
-
-
