@@ -739,9 +739,9 @@ class tof_12_from_durin_to_control:
         buf += struct.pack("<128s", self._tof_2)
         return buf
     def get_tof_1(self):
-        return self._tof_1
+        return [self._tof_1[i] + (self._tof_1[i + 1] << 8) for i in range(0, 128, 2)]
     def get_tof_2(self):
-        return self._tof_2
+        return [self._tof_2[i] + (self._tof_2[i + 1] << 8) for i in range(0, 128, 2)]
     def get_all_data(self):
         data = []
         data.append((fields.tof_1, self.get_tof_1()))
@@ -786,9 +786,9 @@ class tof_34_from_durin_to_control:
         buf += struct.pack("<128s", self._tof_4)
         return buf
     def get_tof_3(self):
-        return self._tof_3
+        return [self._tof_3[i] + (self._tof_3[i + 1] << 8) for i in range(0, 128, 2)]
     def get_tof_4(self):
-        return self._tof_4
+        return [self._tof_4[i] + (self._tof_4[i + 1] << 8) for i in range(0, 128, 2)]
     def get_all_data(self):
         data = []
         data.append((fields.tof_3, self.get_tof_3()))
@@ -833,9 +833,9 @@ class tof_56_from_durin_to_control:
         buf += struct.pack("<128s", self._tof_6)
         return buf
     def get_tof_5(self):
-        return self._tof_5
+        return [self._tof_5[i] + (self._tof_5[i + 1] << 8) for i in range(0, 128, 2)]
     def get_tof_6(self):
-        return self._tof_6
+        return [self._tof_6[i] + (self._tof_6[i + 1] << 8) for i in range(0, 128, 2)]
     def get_all_data(self):
         data = []
         data.append((fields.tof_5, self.get_tof_5()))
@@ -880,9 +880,9 @@ class tof_78_from_durin_to_control:
         buf += struct.pack("<128s", self._tof_8)
         return buf
     def get_tof_7(self):
-        return self._tof_7
+        return [self._tof_7[i] + (self._tof_7[i + 1] << 8) for i in range(0, 128, 2)]
     def get_tof_8(self):
-        return self._tof_8
+        return [self._tof_8[i] + (self._tof_8[i + 1] << 8) for i in range(0, 128, 2)]
     def get_all_data(self):
         data = []
         data.append((fields.tof_7, self.get_tof_7()))
