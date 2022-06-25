@@ -73,6 +73,14 @@ void rt_loop(void* arg) {
         update_wifi(&wifi_pt);
         update_imu(&imu_pt);
 
+        if (durin.info.cycle_count % 1000 == 0) {
+                // float ax, ay, az, gx, gy, gz, mx, my, mz;
+                // icm20948_parseAllMetric(&icm, &ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
+                // printf("accelerometer metric: %f %f %f %f %f %f %f %f %f\n", ax, ay, az, gx, gy, gz, mx, my, mz);
+                printf("uwb messages %d\n", durin.info.uwb_messages_received);
+                durin.info.uwb_messages_received = 0;
+        }
+
         while (end_time < start_time + MAIN_LOOP_PERIOD) {
             end_time = esp_timer_get_time();
         }
@@ -131,7 +139,7 @@ void setup(void* arg) {
     init_imu();
 
     // uwb
-    // init_uwb();
+    init_uwb();
 
     uint8_t working_tof = 0;
     for (uint8_t i = 0; i < 8; i++) {
