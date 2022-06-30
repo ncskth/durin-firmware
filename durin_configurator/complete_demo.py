@@ -31,7 +31,7 @@ def get_ip():
     return IP
 
 def norm(x):
-    MIN = 21
+    MIN = 15
     MAX = 232
     ABS = MAX - MIN
     MID = ABS / 2
@@ -130,7 +130,7 @@ control_t.start()
 fig, axarr = plt.subplots(1, 8) 
 objarr = [None] * 8
 for i in range(8):
-    objarr[i] = axarr[i].imshow(tof_data[i], interpolation='nearest', animated = True, vmin = 0, vmax = 500, cmap="copper_r")
+    objarr[i] = axarr[i].imshow(tof_data[i], interpolation='nearest', animated = True, vmin = 0, vmax = 1500, cmap="copper_r")
 
 def anim(n):
     for i in range(8):
