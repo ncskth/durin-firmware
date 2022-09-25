@@ -53,7 +53,7 @@ def tcp_reader_thread():
     while True:
         msg = receive_tcp()
         for v in msg.gen:
-            which = v.message.which()
+            which = v.which()
             print("tcp")
             print(which)
             print(v)
@@ -69,7 +69,7 @@ def udp_reader_thread():
             print("invalid len")
         msg = schema.DurinBase.from_bytes(buf[3:])
         for v in msg.gen:
-            which = v.message.which()
+            which = v.which()
             print("udp")
             print(which)
             print(v)
@@ -81,16 +81,16 @@ tcp_t = Thread(target = tcp_reader_thread)
 tcp_t.start()
 
 msg = schema.DurinBase.new_message()
-msg.message.init("getTofObservations")
+msg.init("getTofObservations")
 
-msg.message.getTofObservations.ids = [0,1,2,3,4,5,6,7]
+msg.getTofObservations.ids = [0,1,2,3,4,5,6,7]
 
 send_tcp(msg)
 
 msg = schema.DurinBase.new_message()
 
-msg.message.init("enableStreaming").destination.init("udpOnly")
+msg.init("enableStreaming").destination.init("udpOnly")
 ip = [int(x) for x in get_ip().split(".")]
-msg.message.enableStreaming.destination.udpOnly.ip = ip
-msg.message.enableStreaming.destination.udpOnly.port = 1336
+msg.enableStreaming.destination.udpOnly.ip = ip
+msg.enableStreaming.destination.udpOnly.port = 1336
 send_tcp(msg)

@@ -62,11 +62,12 @@ struct durin_info {
     uint16_t position_stream_period;
     uint16_t imu_stream_period;
     uint16_t systemstatus_stream_period;
-    bool logging_enabled;
+    enum EnableLogging_which logging_enabled;
+    bool ota_in_progress;
 };
 
 struct durin_control {
-    enum DurinBase_message_which control_type;
+    enum DurinBase_which control_type;
     union {
         struct SetRobotVelocity setRobotVelocity;
         struct SetWheelVelocity setWheelVelocity;
