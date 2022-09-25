@@ -5,7 +5,7 @@
 
 struct protocol_state {
     uint8_t state;
-    uint8_t payload_buf[512];
+    uint8_t payload_buf[2048];
     uint16_t expected_len;
     uint16_t current_len;
     uint8_t id;

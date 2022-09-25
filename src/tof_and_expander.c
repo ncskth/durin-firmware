@@ -84,9 +84,9 @@ void send_tof_telemetry(uint8_t start, uint8_t end) {
         set_TofObservations_TofObservation(&observation, tof_observations.observations, i - start);        
     }
 
-    msg.message.tofObservations = new_TofObservations(cs);
-    write_TofObservations(&tof_observations, msg.message.tofObservations);
-    msg.message_which = DurinBase_message_tofObservations;
+    msg.tofObservations = new_TofObservations(cs);
+    write_TofObservations(&tof_observations, msg.tofObservations);
+    msg.which = DurinBase_tofObservations;
 
     DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
     write_DurinBase(&msg, durin_response_ptr);

@@ -129,42 +129,42 @@ enum SetTofResolution_TofResolutions {
 extern uint16_t streamPeriodMax;
 extern uint16_t streamPeriodMin;
 extern uint16_t durinTcpPort;
-enum DurinBase_message_which {
-	DurinBase_message_reject = 0,
-	DurinBase_message_acknowledge = 1,
-	DurinBase_message_powerOff = 2,
-	DurinBase_message_setRobotVelocity = 3,
-	DurinBase_message_setWheelVelocity = 4,
-	DurinBase_message_setBuzzer = 5,
-	DurinBase_message_setLed = 6,
-	DurinBase_message_enableStreaming = 7,
-	DurinBase_message_disableStreaming = 8,
-	DurinBase_message_setTofStreamPeriod = 9,
-	DurinBase_message_getTofObservations = 10,
-	DurinBase_message_setTofResolution = 11,
-	DurinBase_message_tofObservations = 12,
-	DurinBase_message_setImuStreamPeriod = 13,
-	DurinBase_message_getImuMeasurement = 14,
-	DurinBase_message_imuMeasurement = 15,
-	DurinBase_message_setSystemStatusStreamPeriod = 16,
-	DurinBase_message_getSystemStatus = 17,
-	DurinBase_message_systemStatus = 18,
-	DurinBase_message_getDistanceMeasurement = 19,
-	DurinBase_message_distanceMeasurement = 20,
-	DurinBase_message_setPositionStreamPeriod = 21,
-	DurinBase_message_getPosition = 22,
-	DurinBase_message_position = 23,
-	DurinBase_message_setWifiConfig = 24,
-	DurinBase_message_setNodeId = 25,
-	DurinBase_message_textLogging = 26,
-	DurinBase_message_otaUpdateCommit = 27,
-	DurinBase_message_otaUpdate = 28,
-	DurinBase_message_enableLogging = 29,
-	DurinBase_message_otaUpdateBegin = 30
+enum DurinBase_which {
+	DurinBase_reject = 0,
+	DurinBase_acknowledge = 1,
+	DurinBase_powerOff = 2,
+	DurinBase_setRobotVelocity = 3,
+	DurinBase_setWheelVelocity = 4,
+	DurinBase_setBuzzer = 5,
+	DurinBase_setLed = 6,
+	DurinBase_enableStreaming = 7,
+	DurinBase_disableStreaming = 8,
+	DurinBase_setTofStreamPeriod = 9,
+	DurinBase_getTofObservations = 10,
+	DurinBase_setTofResolution = 11,
+	DurinBase_tofObservations = 12,
+	DurinBase_setImuStreamPeriod = 13,
+	DurinBase_getImuMeasurement = 14,
+	DurinBase_imuMeasurement = 15,
+	DurinBase_setSystemStatusStreamPeriod = 16,
+	DurinBase_getSystemStatus = 17,
+	DurinBase_systemStatus = 18,
+	DurinBase_getDistanceMeasurement = 19,
+	DurinBase_distanceMeasurement = 20,
+	DurinBase_setPositionStreamPeriod = 21,
+	DurinBase_getPosition = 22,
+	DurinBase_position = 23,
+	DurinBase_setWifiConfig = 24,
+	DurinBase_setNodeId = 25,
+	DurinBase_textLogging = 26,
+	DurinBase_otaUpdateCommit = 27,
+	DurinBase_otaUpdate = 28,
+	DurinBase_enableLogging = 29,
+	DurinBase_otaUpdateBegin = 30
 };
 
 struct DurinBase {
-	enum DurinBase_message_which message_which;
+	enum DurinBase_which which;
 	capnp_nowarn union {
 		Reject_ptr reject;
 		Acknowledge_ptr acknowledge;
@@ -197,7 +197,7 @@ struct DurinBase {
 		OtaUpdate_ptr otaUpdate;
 		EnableLogging_ptr enableLogging;
 		OtaUpdateBegin_ptr otaUpdateBegin;
-	} message;
+	};
 };
 
 static const size_t DurinBase_word_count = 1;
@@ -508,20 +508,20 @@ static const size_t GetPosition_pointer_count = 0;
 
 static const size_t GetPosition_struct_bytes_count = 0;
 
-enum Position_position_which {
-	Position_position_unknown = 0,
-	Position_position_vector = 1
+enum Position_which {
+	Position_unknown = 0,
+	Position_vector = 1
 };
 
 struct Position {
-	enum Position_position_which position_which;
+	enum Position_which which;
 	capnp_nowarn union {
 		capnp_nowarn struct {
 			int32_t x;
 			int32_t y;
 			int32_t z;
 		} vector;
-	} position;
+	};
 };
 
 static const size_t Position_word_count = 2;
@@ -595,9 +595,17 @@ static const size_t OtaUpdate_pointer_count = 1;
 
 static const size_t OtaUpdate_struct_bytes_count = 8;
 
+enum EnableLogging_which {
+	EnableLogging_disabled = 0,
+	EnableLogging_tcp = 1,
+	EnableLogging_uart = 2,
+	EnableLogging_both = 3
+};
 
 struct EnableLogging {
-	unsigned enabled : 1;
+	enum EnableLogging_which which;
+	capnp_nowarn union {
+	};
 };
 
 static const size_t EnableLogging_word_count = 1;

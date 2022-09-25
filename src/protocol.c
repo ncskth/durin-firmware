@@ -19,16 +19,16 @@
 
 #define fast_acknowledge(response, cs) {\
     struct Acknowledge data;\
-    response->message.acknowledge = new_Acknowledge(cs);\
-    write_Acknowledge(&data, response->message.acknowledge);\
-    response->message_which = DurinBase_message_acknowledge;\
+    response->acknowledge = new_Acknowledge(cs);\
+    write_Acknowledge(&data, response->acknowledge);\
+    response->which = DurinBase_acknowledge;\
 }\
 
 #define fast_reject(response, cs) {\
     struct Reject data;\
-    response->message.reject = new_Reject(cs);\
-    write_Reject(&data, response->message.reject);\
-    response->message_which = DurinBase_message_reject;\
+    response->reject = new_Reject(cs);\
+    write_Reject(&data, response->reject);\
+    response->which = DurinBase_reject;\
 }\
 
 void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where);
@@ -146,87 +146,87 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
     struct capn_segment *cs = capn_root(&response_c).seg;    
     struct DurinBase durin_response;
 
-    switch (base.message_which) {
-        case DurinBase_message_enableStreaming:
-            handle_enableStreaming(base.message.enableStreaming, &durin_response, cs);
+    switch (base.which) {
+        case DurinBase_enableStreaming:
+            handle_enableStreaming(base.enableStreaming, &durin_response, cs);
             break;
         
-        case DurinBase_message_disableStreaming:
-            handle_disableStreaming(base.message.disableStreaming, &durin_response, cs);
+        case DurinBase_disableStreaming:
+            handle_disableStreaming(base.disableStreaming, &durin_response, cs);
             break;
         
-        case DurinBase_message_powerOff:
-            handle_powerOff(base.message.powerOff, &durin_response, cs);
+        case DurinBase_powerOff:
+            handle_powerOff(base.powerOff, &durin_response, cs);
             break;
         
-        case DurinBase_message_setRobotVelocity:
-            handle_setRobotVelocity(base.message.setRobotVelocity, &durin_response, cs);
+        case DurinBase_setRobotVelocity:
+            handle_setRobotVelocity(base.setRobotVelocity, &durin_response, cs);
             break;
         
-        case DurinBase_message_setWheelVelocity:
-            handle_setWheelVelocity(base.message.setWheelVelocity, &durin_response, cs);
+        case DurinBase_setWheelVelocity:
+            handle_setWheelVelocity(base.setWheelVelocity, &durin_response, cs);
             break;
 
-        case DurinBase_message_setLed:
-            handle_setLed(base.message.setLed, &durin_response, cs);
+        case DurinBase_setLed:
+            handle_setLed(base.setLed, &durin_response, cs);
             break;
 
-        case DurinBase_message_setBuzzer:
-            handle_setBuzzer(base.message.setBuzzer, &durin_response, cs);
+        case DurinBase_setBuzzer:
+            handle_setBuzzer(base.setBuzzer, &durin_response, cs);
             break;
 
-        case DurinBase_message_otaUpdate:
-            handle_otaUpdate(base.message.otaUpdate, &durin_response, cs);
+        case DurinBase_otaUpdate:
+            handle_otaUpdate(base.otaUpdate, &durin_response, cs);
             break;
 
-        case DurinBase_message_otaUpdateCommit:
-            handle_otaUdateCommit(base.message.otaUpdateCommit, &durin_response, cs);
+        case DurinBase_otaUpdateCommit:
+            handle_otaUdateCommit(base.otaUpdateCommit, &durin_response, cs);
             break;
 
-        case DurinBase_message_getImuMeasurement:
-            handle_getImuMeasurement(base.message.getImuMeasurement, &durin_response, cs);
+        case DurinBase_getImuMeasurement:
+            handle_getImuMeasurement(base.getImuMeasurement, &durin_response, cs);
             break;
 
-        case DurinBase_message_getPosition:
-            handle_getPosition(base.message.getPosition, &durin_response, cs);
+        case DurinBase_getPosition:
+            handle_getPosition(base.getPosition, &durin_response, cs);
             break;
 
-        case DurinBase_message_getSystemStatus:
-            handle_getSystemStatus(base.message.getSystemStatus, &durin_response, cs);
+        case DurinBase_getSystemStatus:
+            handle_getSystemStatus(base.getSystemStatus, &durin_response, cs);
             break;
 
-        case DurinBase_message_getTofObservations:
-            handle_getTofObservations(base.message.getTofObservations, &durin_response, cs);
+        case DurinBase_getTofObservations:
+            handle_getTofObservations(base.getTofObservations, &durin_response, cs);
             break;
 
-        case DurinBase_message_getDistanceMeasurement:
-            handle_getDistanceMeasurement(base.message.getDistanceMeasurement, &durin_response, cs);
+        case DurinBase_getDistanceMeasurement:
+            handle_getDistanceMeasurement(base.getDistanceMeasurement, &durin_response, cs);
             break;
         
-        case DurinBase_message_setImuStreamPeriod:
-            handle_setImuStreamPeriod(base.message.setImuStreamPeriod, &durin_response, cs);
+        case DurinBase_setImuStreamPeriod:
+            handle_setImuStreamPeriod(base.setImuStreamPeriod, &durin_response, cs);
             break;
 
-        case DurinBase_message_setPositionStreamPeriod:
-            handle_setPositionStreamPeriod(base.message.setPositionStreamPeriod, &durin_response, cs);
+        case DurinBase_setPositionStreamPeriod:
+            handle_setPositionStreamPeriod(base.setPositionStreamPeriod, &durin_response, cs);
             break;
         
-        case DurinBase_message_setSystemStatusStreamPeriod:
-            handle_setSystemStatusStreamPeriod(base.message.setSystemStatusStreamPeriod, &durin_response, cs);
+        case DurinBase_setSystemStatusStreamPeriod:
+            handle_setSystemStatusStreamPeriod(base.setSystemStatusStreamPeriod, &durin_response, cs);
             break;
         
-        case DurinBase_message_setTofStreamPeriod:
-            handle_setTofStreamPeriod(base.message.setTofStreamPeriod, &durin_response, cs);
+        case DurinBase_setTofStreamPeriod:
+            handle_setTofStreamPeriod(base.setTofStreamPeriod, &durin_response, cs);
             break;
 
-        case DurinBase_message_otaUpdateBegin:
-            handle_otaUpdateBegin(base.message.otaUpdateBegin, &durin_response, cs);
+        case DurinBase_otaUpdateBegin:
+            handle_otaUpdateBegin(base.otaUpdateBegin, &durin_response, cs);
             break;
         
-        case DurinBase_message_enableLogging:
-            handle_enableLogging(base.message.enableLogging, &durin_response, cs);
+        case DurinBase_enableLogging:
+            handle_enableLogging(base.enableLogging, &durin_response, cs);
             break;
-
+        
         default:
             fast_reject((&durin_response), cs);
     }
@@ -323,25 +323,25 @@ void handle_getImuMeasurement(GetImuMeasurement_ptr msg, struct DurinBase *respo
     imu.magnetometerXUt = durin.telemetry.mx;
     imu.magnetometerYUt = durin.telemetry.my;
     imu.magnetometerZUt = durin.telemetry.mz;
-    response->message.imuMeasurement = new_ImuMeasurement(cs);
-    write_ImuMeasurement(&imu, response->message.imuMeasurement);
-    response->message_which = DurinBase_message_imuMeasurement;
+    response->imuMeasurement = new_ImuMeasurement(cs);
+    write_ImuMeasurement(&imu, response->imuMeasurement);
+    response->which = DurinBase_imuMeasurement;
 }
 
 void handle_getPosition(GetPosition_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct Position position;
     if (durin.telemetry.fix_type == 3) {
-        position.position.vector.x = durin.telemetry.pos_x;
-        position.position.vector.y = durin.telemetry.pos_y;
-        position.position.vector.z = durin.telemetry.pos_z;
-        position.position_which = Position_position_vector;
+        position.vector.x = durin.telemetry.pos_x;
+        position.vector.y = durin.telemetry.pos_y;
+        position.vector.z = durin.telemetry.pos_z;
+        position.which = Position_vector;
     } else {
-        position.position_which = Position_position_unknown;
+        position.which = Position_unknown;
     }
 
-    response->message.position = new_Position(cs);
-    write_Position(&position, response->message.position);
-    response->message_which = DurinBase_message_position;
+    response->position = new_Position(cs);
+    write_Position(&position, response->position);
+    response->which = DurinBase_position;
 }
 
 void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
@@ -349,9 +349,9 @@ void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response,
     status.batteryMv = durin.telemetry.battery_voltage * 1000;
     status.batteryPercent = 0; //TODO: 
 
-    response->message.systemStatus = new_SystemStatus(cs);
-    write_SystemStatus(&status, response->message.systemStatus);
-    response->message_which = DurinBase_message_systemStatus;
+    response->systemStatus = new_SystemStatus(cs);
+    write_SystemStatus(&status, response->systemStatus);
+    response->which = DurinBase_systemStatus;
 }
 
 void handle_getTofObservations(GetTofObservations_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
@@ -369,9 +369,9 @@ void handle_getTofObservations(GetTofObservations_ptr msg, struct DurinBase *res
         set_TofObservations_TofObservation(&observation, tof_observations.observations, i);        
     }
 
-    response->message.tofObservations = new_TofObservations(cs);
-    write_TofObservations(&tof_observations, response->message.tofObservations);
-    response->message_which = DurinBase_message_tofObservations;
+    response->tofObservations = new_TofObservations(cs);
+    write_TofObservations(&tof_observations, response->tofObservations);
+    response->which = DurinBase_tofObservations;
 }
 
 void handle_getDistanceMeasurement(GetDistanceMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
@@ -405,24 +405,23 @@ void handle_setTofStreamPeriod(SetTofStreamPeriod_ptr msg, struct DurinBase *res
 
 esp_ota_handle_t ota_handle;
 esp_partition_t *ota_partition;
-bool ota_started = false;
 void handle_otaUpdateBegin(OtaUpdateBegin_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     uint8_t stop = false;
     ota_partition = esp_ota_get_next_update_partition(NULL);
     bool ret = esp_ota_begin(ota_partition, 0, &ota_handle);
     if (ret == ESP_OK) {
         fast_acknowledge(response, cs);
-        ota_started = 1;
+        durin.info.ota_in_progress = 1;
     } else {
         fast_reject(response, cs);
     }
-    ota_started = ret;
 }
 
 void handle_otaUpdate(OtaUpdate_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct OtaUpdate data;
     read_OtaUpdate(&data, msg);
-    bool ret = esp_ota_write(ota_handle, capn_len(data.data), capn_len(data.data));
+    uint16_t len = capn_len(data.data);
+    bool ret = esp_ota_write(ota_handle, data.data.p.data, len);
     if (ret == ESP_OK) {
         fast_acknowledge(response, cs);
     } else {
@@ -431,12 +430,12 @@ void handle_otaUpdate(OtaUpdate_ptr msg, struct DurinBase *response, struct capn
 }
 
 void handle_otaUdateCommit(OtaUpdateCommit_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
-    if (ota_started) {
+    if (durin.info.ota_in_progress) {
         esp_ota_end(ota_handle);
         esp_ota_set_boot_partition(ota_partition);
         printf("Update done, restarting\n");
-        vTaskDelay(2000);
-        esp_restart();
+        vTaskDelay(1000);
+        power_off();
     } else {
         const esp_partition_t *part = esp_ota_get_running_partition();
         esp_ota_img_states_t state;
@@ -460,6 +459,6 @@ void handle_otaUdateCommit(OtaUpdateCommit_ptr msg, struct DurinBase *response, 
 void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct EnableLogging data;
     read_EnableLogging(&data, msg);
-    durin.info.logging_enabled = data.enabled;
+    durin.info.logging_enabled = data.which;
     fast_acknowledge(response, cs);
 }

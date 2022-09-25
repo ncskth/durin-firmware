@@ -158,7 +158,7 @@ void setup(void* arg) {
     }
     durin.info.init_finished = 1;
     printf("init done\n");
-    printf("version 10\n");
+    printf("version 11\n");
     // while (1) {
     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
     // }
@@ -166,7 +166,7 @@ void setup(void* arg) {
 }
 
 void app_main() {
-    durin.info.logging_enabled = false;
+    durin.info.logging_enabled = EnableLogging_disabled;
     init_user_uart();
     _GLOBAL_REENT->_stdout = fwopen(NULL, &durin_writefn);
     static char stdout_buf[128];
@@ -187,12 +187,15 @@ static capn_text chars_to_text(const char *chars) {
     };
 }
 
-void durin_writefn(void* cookie, const char* data, int size) {
+void IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     static bool in_writefn = 0;
     if (in_writefn) {
         return; //prevent recursive writes
     }
-    if (!durin.info.logging_enabled) {
+    if (durin.info.logging_enabled == EnableLogging_disabled) {
+        return;
+    }
+    if (durin.info.ota_in_progress) {
         return;
     }
     in_writefn = 1;
@@ -214,15 +217,24 @@ void durin_writefn(void* cookie, const char* data, int size) {
 
 
     uint16_t len;
-    msg.message.textLogging = new_TextLogging(cs);
-    msg.message_which = DurinBase_message_textLogging;
+    msg.textLogging = new_TextLogging(cs);
+    msg.which = DurinBase_textLogging;
     DurinBase_ptr durin_ptr = new_DurinBase(cs);
-    write_TextLogging(&log, msg.message.textLogging);
+    write_TextLogging(&log, msg.textLogging);
     write_DurinBase(&msg, durin_ptr);
     e = capn_setp(capn_root(&c), 0, durin_ptr.p);              
     len = capn_write_mem(&c, buf, size + 100, CAPN_PACKED);
-    send_response(buf, len, CHANNEL_UART);
-    send_response(buf, len, CHANNEL_TCP);
+    if (durin.info.logging_enabled == EnableLogging_uart) {
+        send_response(buf, len, CHANNEL_UART);
+    }
+    if (durin.info.logging_enabled == EnableLogging_tcp) {
+        send_response(buf, len, CHANNEL_TCP);
+    }
+    if (durin.info.logging_enabled == EnableLogging_both) {
+        send_response(buf, len, CHANNEL_TCP);
+        send_response(buf, len, CHANNEL_UART);
+    }
+    uart_wait_tx_idle_polling(UART_USER);
     capn_free(&c);
     free(buf);
     in_writefn = 0;

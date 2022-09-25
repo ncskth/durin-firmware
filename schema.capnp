@@ -9,7 +9,7 @@ const durinTcpPort :UInt16 = 1337;
 
 ## all types are implemented here so this is the message you want to listen for. Then you can check which field of the union you actually got
 struct DurinBase {
-    message :union {
+    union {
         reject @0 :Reject;
         acknowledge @1 :Acknowledge;
         powerOff @2 :PowerOff;
@@ -101,7 +101,7 @@ struct SetLed {
 }
 
 # Durin can stream telemetry over UDP and/or UART. This command sets the IP and Port for the receiving server and starts streaming
-# UUART Baudrate is locked at 4Mbaud
+# UUART Baudrate is locked at 2Mbaud
 struct EnableStreaming {
     destination :union {
         uartOnly @0 :Void;
@@ -251,7 +251,7 @@ struct GetPosition {
 
 # X, Y, Z in millimeters
 struct Position {
-    position :union {
+    union {
         unknown @0 :Void;
         vector :group {
             x @1 :Int32;
@@ -293,5 +293,10 @@ struct OtaUpdate {
 
 # enables console output through TextLogging messages
 struct EnableLogging {
-    enabled @0 :Bool;
+    union {
+        disabled @0 :Void;
+        tcp @1 :Void;
+        uart @2 :Void;
+        both @3 :Void;
+    }
 }

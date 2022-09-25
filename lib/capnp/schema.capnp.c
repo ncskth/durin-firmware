@@ -26,40 +26,40 @@ DurinBase_list new_DurinBase_list(struct capn_segment *s, int len) {
 void read_DurinBase(struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	s->message_which = (enum DurinBase_message_which)(int) capn_read16(p.p, 0);
-	switch (s->message_which) {
-	case DurinBase_message_reject:
-	case DurinBase_message_acknowledge:
-	case DurinBase_message_powerOff:
-	case DurinBase_message_setRobotVelocity:
-	case DurinBase_message_setWheelVelocity:
-	case DurinBase_message_setBuzzer:
-	case DurinBase_message_setLed:
-	case DurinBase_message_enableStreaming:
-	case DurinBase_message_disableStreaming:
-	case DurinBase_message_setTofStreamPeriod:
-	case DurinBase_message_getTofObservations:
-	case DurinBase_message_setTofResolution:
-	case DurinBase_message_tofObservations:
-	case DurinBase_message_setImuStreamPeriod:
-	case DurinBase_message_getImuMeasurement:
-	case DurinBase_message_imuMeasurement:
-	case DurinBase_message_setSystemStatusStreamPeriod:
-	case DurinBase_message_getSystemStatus:
-	case DurinBase_message_systemStatus:
-	case DurinBase_message_getDistanceMeasurement:
-	case DurinBase_message_distanceMeasurement:
-	case DurinBase_message_setPositionStreamPeriod:
-	case DurinBase_message_getPosition:
-	case DurinBase_message_position:
-	case DurinBase_message_setWifiConfig:
-	case DurinBase_message_setNodeId:
-	case DurinBase_message_textLogging:
-	case DurinBase_message_otaUpdateCommit:
-	case DurinBase_message_otaUpdate:
-	case DurinBase_message_enableLogging:
-	case DurinBase_message_otaUpdateBegin:
-		s->message.otaUpdateBegin.p = capn_getp(p.p, 0, 0);
+	s->which = (enum DurinBase_which)(int) capn_read16(p.p, 0);
+	switch (s->which) {
+	case DurinBase_reject:
+	case DurinBase_acknowledge:
+	case DurinBase_powerOff:
+	case DurinBase_setRobotVelocity:
+	case DurinBase_setWheelVelocity:
+	case DurinBase_setBuzzer:
+	case DurinBase_setLed:
+	case DurinBase_enableStreaming:
+	case DurinBase_disableStreaming:
+	case DurinBase_setTofStreamPeriod:
+	case DurinBase_getTofObservations:
+	case DurinBase_setTofResolution:
+	case DurinBase_tofObservations:
+	case DurinBase_setImuStreamPeriod:
+	case DurinBase_getImuMeasurement:
+	case DurinBase_imuMeasurement:
+	case DurinBase_setSystemStatusStreamPeriod:
+	case DurinBase_getSystemStatus:
+	case DurinBase_systemStatus:
+	case DurinBase_getDistanceMeasurement:
+	case DurinBase_distanceMeasurement:
+	case DurinBase_setPositionStreamPeriod:
+	case DurinBase_getPosition:
+	case DurinBase_position:
+	case DurinBase_setWifiConfig:
+	case DurinBase_setNodeId:
+	case DurinBase_textLogging:
+	case DurinBase_otaUpdateCommit:
+	case DurinBase_otaUpdate:
+	case DurinBase_enableLogging:
+	case DurinBase_otaUpdateBegin:
+		s->otaUpdateBegin.p = capn_getp(p.p, 0, 0);
 		break;
 	default:
 		break;
@@ -68,40 +68,40 @@ void read_DurinBase(struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 void write_DurinBase(const struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	capn_write16(p.p, 0, s->message_which);
-	switch (s->message_which) {
-	case DurinBase_message_reject:
-	case DurinBase_message_acknowledge:
-	case DurinBase_message_powerOff:
-	case DurinBase_message_setRobotVelocity:
-	case DurinBase_message_setWheelVelocity:
-	case DurinBase_message_setBuzzer:
-	case DurinBase_message_setLed:
-	case DurinBase_message_enableStreaming:
-	case DurinBase_message_disableStreaming:
-	case DurinBase_message_setTofStreamPeriod:
-	case DurinBase_message_getTofObservations:
-	case DurinBase_message_setTofResolution:
-	case DurinBase_message_tofObservations:
-	case DurinBase_message_setImuStreamPeriod:
-	case DurinBase_message_getImuMeasurement:
-	case DurinBase_message_imuMeasurement:
-	case DurinBase_message_setSystemStatusStreamPeriod:
-	case DurinBase_message_getSystemStatus:
-	case DurinBase_message_systemStatus:
-	case DurinBase_message_getDistanceMeasurement:
-	case DurinBase_message_distanceMeasurement:
-	case DurinBase_message_setPositionStreamPeriod:
-	case DurinBase_message_getPosition:
-	case DurinBase_message_position:
-	case DurinBase_message_setWifiConfig:
-	case DurinBase_message_setNodeId:
-	case DurinBase_message_textLogging:
-	case DurinBase_message_otaUpdateCommit:
-	case DurinBase_message_otaUpdate:
-	case DurinBase_message_enableLogging:
-	case DurinBase_message_otaUpdateBegin:
-		capn_setp(p.p, 0, s->message.otaUpdateBegin.p);
+	capn_write16(p.p, 0, s->which);
+	switch (s->which) {
+	case DurinBase_reject:
+	case DurinBase_acknowledge:
+	case DurinBase_powerOff:
+	case DurinBase_setRobotVelocity:
+	case DurinBase_setWheelVelocity:
+	case DurinBase_setBuzzer:
+	case DurinBase_setLed:
+	case DurinBase_enableStreaming:
+	case DurinBase_disableStreaming:
+	case DurinBase_setTofStreamPeriod:
+	case DurinBase_getTofObservations:
+	case DurinBase_setTofResolution:
+	case DurinBase_tofObservations:
+	case DurinBase_setImuStreamPeriod:
+	case DurinBase_getImuMeasurement:
+	case DurinBase_imuMeasurement:
+	case DurinBase_setSystemStatusStreamPeriod:
+	case DurinBase_getSystemStatus:
+	case DurinBase_systemStatus:
+	case DurinBase_getDistanceMeasurement:
+	case DurinBase_distanceMeasurement:
+	case DurinBase_setPositionStreamPeriod:
+	case DurinBase_getPosition:
+	case DurinBase_position:
+	case DurinBase_setWifiConfig:
+	case DurinBase_setNodeId:
+	case DurinBase_textLogging:
+	case DurinBase_otaUpdateCommit:
+	case DurinBase_otaUpdate:
+	case DurinBase_enableLogging:
+	case DurinBase_otaUpdateBegin:
+		capn_setp(p.p, 0, s->otaUpdateBegin.p);
 		break;
 	default:
 		break;
@@ -941,12 +941,12 @@ Position_list new_Position_list(struct capn_segment *s, int len) {
 void read_Position(struct Position *s capnp_unused, Position_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	s->position_which = (enum Position_position_which)(int) capn_read16(p.p, 0);
-	switch (s->position_which) {
-	case Position_position_vector:
-		s->position.vector.x = (int32_t) ((int32_t)capn_read32(p.p, 4));
-		s->position.vector.y = (int32_t) ((int32_t)capn_read32(p.p, 8));
-		s->position.vector.z = (int32_t) ((int32_t)capn_read32(p.p, 12));
+	s->which = (enum Position_which)(int) capn_read16(p.p, 0);
+	switch (s->which) {
+	case Position_vector:
+		s->vector.x = (int32_t) ((int32_t)capn_read32(p.p, 4));
+		s->vector.y = (int32_t) ((int32_t)capn_read32(p.p, 8));
+		s->vector.z = (int32_t) ((int32_t)capn_read32(p.p, 12));
 		break;
 	default:
 		break;
@@ -955,12 +955,12 @@ void read_Position(struct Position *s capnp_unused, Position_ptr p) {
 void write_Position(const struct Position *s capnp_unused, Position_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	capn_write16(p.p, 0, s->position_which);
-	switch (s->position_which) {
-	case Position_position_vector:
-		capn_write32(p.p, 4, (uint32_t) (s->position.vector.x));
-		capn_write32(p.p, 8, (uint32_t) (s->position.vector.y));
-		capn_write32(p.p, 12, (uint32_t) (s->position.vector.z));
+	capn_write16(p.p, 0, s->which);
+	switch (s->which) {
+	case Position_vector:
+		capn_write32(p.p, 4, (uint32_t) (s->vector.x));
+		capn_write32(p.p, 8, (uint32_t) (s->vector.y));
+		capn_write32(p.p, 12, (uint32_t) (s->vector.z));
 		break;
 	default:
 		break;
@@ -1174,12 +1174,20 @@ EnableLogging_list new_EnableLogging_list(struct capn_segment *s, int len) {
 void read_EnableLogging(struct EnableLogging *s capnp_unused, EnableLogging_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	s->enabled = (capn_read8(p.p, 0) & 1) != 0;
+	s->which = (enum EnableLogging_which)(int) capn_read16(p.p, 0);
+	switch (s->which) {
+	default:
+		break;
+	}
 }
 void write_EnableLogging(const struct EnableLogging *s capnp_unused, EnableLogging_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	capn_write1(p.p, 0, s->enabled != 0);
+	capn_write16(p.p, 0, s->which);
+	switch (s->which) {
+	default:
+		break;
+	}
 }
 void get_EnableLogging(struct EnableLogging *s, EnableLogging_list l, int i) {
 	EnableLogging_ptr p;

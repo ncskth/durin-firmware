@@ -40,7 +40,7 @@ void init_servo() {
     uart_set_pin(UART_SERVO, PIN_UART_SERVO_TX, PIN_UART_SERVO_RX, GPIO_NUM_NC, GPIO_NUM_NC);
     uart_driver_install(UART_SERVO, 256, 256, 20, NULL, 0);
 
-    durin.control.control_type = DurinBase_message_setWheelVelocity;
+    durin.control.control_type = DurinBase_setWheelVelocity;
     durin.control.setWheelVelocity.wheelBackLeftMms = 0;
     durin.control.setWheelVelocity.wheelBackRightMms = 0;
     durin.control.setWheelVelocity.wheelFrontLeftMms = 0;
@@ -69,14 +69,14 @@ void update_servo(struct pt *pt) {
     static float speed4;
     while(1) {
         if (!durin.info.motor_enabled || esp_timer_get_time() - durin.info.last_message_received > 3*1000*1000) {
-            durin.control.control_type = DurinBase_message_setWheelVelocity;
+            durin.control.control_type = DurinBase_setWheelVelocity;
             durin.control.setWheelVelocity.wheelBackLeftMms = 0;
             durin.control.setWheelVelocity.wheelBackRightMms = 0;
             durin.control.setWheelVelocity.wheelFrontLeftMms = 0;
             durin.control.setWheelVelocity.wheelFrontRightMms = 0;
         }
 
-        if (durin.control.control_type == DurinBase_message_setRobotVelocity) {
+        if (durin.control.control_type == DurinBase_setRobotVelocity) {
             float x = durin.control.setRobotVelocity.velocityXMms;
             float y = durin.control.setRobotVelocity.velocityYMms;
             float angle = atan2f(y, x);
@@ -117,7 +117,7 @@ void update_servo(struct pt *pt) {
             PT_YIELD(pt);
             dx_action(&dx, DX_ID_BROADCAST);
 
-        } else if (durin.control.control_type == DurinBase_message_setWheelVelocity) {
+        } else if (durin.control.control_type == DurinBase_setWheelVelocity) {
             speed1 = durin.control.setWheelVelocity.wheelBackLeftMms * MMS_TO_RPM;
             speed2 = durin.control.setWheelVelocity.wheelBackRightMms * MMS_TO_RPM;
             speed3 = durin.control.setWheelVelocity.wheelFrontLeftMms * MMS_TO_RPM;
