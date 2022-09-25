@@ -1,9 +1,7 @@
 #include <stdint.h>
 
 #include "prot.h"
-
-//global variables are ugly but yeah, this tells what durin should respond with
-extern uint8_t response;
+#include "durin.h"
 
 struct protocol_state {
     uint8_t state;
@@ -11,6 +9,7 @@ struct protocol_state {
     uint16_t expected_len;
     uint16_t current_len;
     uint8_t id;
+    enum comm_channel channel;
 };
 
-uint8_t protocol_parse_byte(struct protocol_state *state, uint8_t byte);
+void protocol_parse_byte(struct protocol_state *state, uint8_t byte);

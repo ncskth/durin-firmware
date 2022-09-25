@@ -46,6 +46,8 @@ struct DurinBase {
         textLogging @26 :TextLogging;
         otaUpdateCommit @27 :OtaUpdateCommit;
         otaUpdate @28 :OtaUpdate;
+        enableLogging @29 :EnableLogging;
+        otaUpdateBegin @30 :OtaUpdateBegin;
     }
 }
 
@@ -105,11 +107,11 @@ struct EnableStreaming {
         uartOnly @0 :Void;
         udpOnly :group {
             ip @1 :List(UInt8);
-            port @2 :UInt16 = 1337;
+            port @2 :UInt16;
         }
         uartAndUdp :group {
             ip @3 :List(UInt8);
-            port @4 :UInt16 = 1337;
+            port @4 :UInt16;
         }
     }
 }
@@ -276,11 +278,20 @@ struct TextLogging {
     log @0 :Text;
 }
 
-### for runtime firmware updates
+# for runtime firmware updates
+struct OtaUpdateBegin {
+
+}
+
 struct OtaUpdateCommit {
 
 }
 
 struct OtaUpdate {
     data @0 :Data;
+}
+
+# enables console output through TextLogging messages
+struct EnableLogging {
+    enabled @0 :Bool;
 }

@@ -40,11 +40,11 @@ void init_servo() {
     uart_set_pin(UART_SERVO, PIN_UART_SERVO_TX, PIN_UART_SERVO_RX, GPIO_NUM_NC, GPIO_NUM_NC);
     uart_driver_install(UART_SERVO, 256, 256, 20, NULL, 0);
 
-    durin.control.control_id = prot_id_move_wheels;
-    durin.control.motor_velocity.motor_1 = 0;
-    durin.control.motor_velocity.motor_2 = 0;
-    durin.control.motor_velocity.motor_3 = 0;
-    durin.control.motor_velocity.motor_4 = 0;
+    durin.control.control_type = DurinBase_message_setWheelVelocity;
+    durin.control.setWheelVelocity.wheelBackLeftMms = 0;
+    durin.control.setWheelVelocity.wheelBackRightMms = 0;
+    durin.control.setWheelVelocity.wheelFrontLeftMms = 0;
+    durin.control.setWheelVelocity.wheelFrontRightMms = 0;
 
     dx_init(&dx, UART_SERVO);
     dx_ping(&dx, SERVO1);
@@ -68,25 +68,17 @@ void update_servo(struct pt *pt) {
     static float speed3;
     static float speed4;
     while(1) {
-        if (!durin.info.motor_enabled) {
-            durin.control.control_id = prot_id_move_wheels;
-            durin.control.motor_velocity.motor_1 = 0;
-            durin.control.motor_velocity.motor_2 = 0;
-            durin.control.motor_velocity.motor_3 = 0;
-            durin.control.motor_velocity.motor_4 = 0;   
+        if (!durin.info.motor_enabled || esp_timer_get_time() - durin.info.last_message_received > 3*1000*1000) {
+            durin.control.control_type = DurinBase_message_setWheelVelocity;
+            durin.control.setWheelVelocity.wheelBackLeftMms = 0;
+            durin.control.setWheelVelocity.wheelBackRightMms = 0;
+            durin.control.setWheelVelocity.wheelFrontLeftMms = 0;
+            durin.control.setWheelVelocity.wheelFrontRightMms = 0;
         }
 
-        if (esp_timer_get_time() - durin.info.last_message_received > 3*1000*1000) {
-            durin.control.control_id = prot_id_move_wheels;
-            durin.control.motor_velocity.motor_1 = 0;
-            durin.control.motor_velocity.motor_2 = 0;
-            durin.control.motor_velocity.motor_3 = 0;
-            durin.control.motor_velocity.motor_4 = 0;   
-        }
-
-        if (durin.control.control_id == prot_id_move_rob_centric) {
-            float x = durin.control.robot_velocity.velocity_x;
-            float y = durin.control.robot_velocity.velocity_y;
+        if (durin.control.control_type == DurinBase_message_setRobotVelocity) {
+            float x = durin.control.setRobotVelocity.velocityXMms;
+            float y = durin.control.setRobotVelocity.velocityYMms;
             float angle = atan2f(y, x);
             float magnitude = sqrtf(x*x + y*y);
             float speed14 = sinf(angle + PI / 4) * magnitude * MMS_TO_RPM * 2; // multiply by two because the vector is cut in half???
@@ -95,7 +87,7 @@ void update_servo(struct pt *pt) {
             float robot_circumference = ROBOT_RADIUS_MM * 2 * PI;
 
             // divide by 4 and it becomes perfect for some reason
-            float turn = robot_circumference * durin.control.robot_velocity.rotation_cw / 360.0 * MMS_TO_RPM * sqrtf(2) / 8; // times sqrt(2) to get length 1??
+            float turn = robot_circumference * durin.control.setRobotVelocity.rotationDegs / 360.0 * MMS_TO_RPM * sqrtf(2) / 8; // times sqrt(2) to get length 1??
 
             // add movement
             speed1 = speed14;
@@ -125,11 +117,11 @@ void update_servo(struct pt *pt) {
             PT_YIELD(pt);
             dx_action(&dx, DX_ID_BROADCAST);
 
-        } else if (durin.control.control_id == prot_id_move_wheels) {
-            speed1 = durin.control.motor_velocity.motor_1 * MMS_TO_RPM;
-            speed2 = durin.control.motor_velocity.motor_2 * MMS_TO_RPM;
-            speed3 = durin.control.motor_velocity.motor_3 * MMS_TO_RPM;
-            speed4 = durin.control.motor_velocity.motor_4 * MMS_TO_RPM;
+        } else if (durin.control.control_type == DurinBase_message_setWheelVelocity) {
+            speed1 = durin.control.setWheelVelocity.wheelBackLeftMms * MMS_TO_RPM;
+            speed2 = durin.control.setWheelVelocity.wheelBackRightMms * MMS_TO_RPM;
+            speed3 = durin.control.setWheelVelocity.wheelFrontLeftMms * MMS_TO_RPM;
+            speed4 = durin.control.setWheelVelocity.wheelFrontRightMms * MMS_TO_RPM;
 
             dx_set_goal_velocity(&dx, SERVO1, speed1, 1);
             PT_YIELD(pt);

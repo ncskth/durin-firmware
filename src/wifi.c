@@ -12,6 +12,7 @@
 #include "pt.h"
 #include "durin.h"
 #include "protocol.h"
+#include "wifi.h"
 
 #define PORT 1337
 
@@ -19,7 +20,11 @@
 #define WIFI_DELAY_NO_BYTES 1
 #define WIFI_DELAY_NO_CONNECTION 5000
 
+void send_tcp(uint8_t *buf, uint16_t len);
+void send_udp(uint8_t *buf, uint16_t len);
+
 int8_t tcp_server_socket_id;
+int8_t tcp_client_socket_id;
 int8_t udp_client_socket_id;
 
 wifi_config_t wifi_config = {
@@ -73,6 +78,24 @@ uint8_t volt_to_percent(float volt) {
     return 100;
 }
 
+void send_tcp(uint8_t *buf, uint16_t len) {
+    if (tcp_client_socket_id < 0) {
+        return;
+    }
+    send(tcp_client_socket_id, buf, len, MSG_DONTWAIT);
+}
+
+void send_udp(uint8_t *buf, uint16_t len) {
+    if (!durin.info.wifi_connected) {
+        return;
+    }
+    struct sockaddr_in dest_addr;
+    dest_addr.sin_addr.s_addr = durin.info.telemetry_udp_address;
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(durin.info.telemetry_udp_port);
+    sendto(udp_client_socket_id, buf, len, MSG_DONTWAIT, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+}
+
 void wifi_disconnected_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data) {
     if (durin.info.wifi_connected) {
         close(tcp_server_socket_id);
@@ -91,7 +114,6 @@ void wifi_disconnected_handler(void* handler_args, esp_event_base_t base, int32_
         memcpy(wifi_config.sta.password, DEFAULT_PASSWORD, sizeof(DEFAULT_PASSWORD));
         ping = 1;
     }
-    
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     esp_wifi_connect(); // a failed connect sends a disconnected event
 }
@@ -144,94 +166,14 @@ void init_wifi() {
 
 void update_wifi(struct pt *pt) {
     PT_BEGIN(pt);
-    static uint64_t last_send; 
-    last_send = esp_timer_get_time();
     while(1) {
         PT_YIELD(pt);
-        if (!durin.info.wifi_connected) {
-            // printf("UDP wifi not active\n");
-            continue;
-        }
-        if (!durin.info.telemetry_udp_enabled) {
-            // printf("UDP not enabled\n");
-            continue;
-        }
-        if (durin.info.telemetry_udp_rate == 0) {
-            continue;
-        }
-        if (esp_timer_get_time() - last_send < durin.info.telemetry_udp_rate * 1000) {
-            // printf("UDP waiting %llu %d\n", esp_timer_get_time() - last_send, durin.info.telemetry_udp_rate * 1000);
-            continue;
-        }
-        last_send = esp_timer_get_time();
-        //send stuff
-        struct sockaddr_in dest_addr;
-        // dest_addr.sin_addr.s_addr = htonl(durin.info.telemetry_udp_address);
-        dest_addr.sin_addr.s_addr = durin.info.telemetry_udp_address;
-        dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(durin.info.telemetry_udp_port);
-
-        uint8_t buf[512];
-        int16_t len;
-
-        int e;
-
-        buf[0] = prot_id_acknowledge;
-        sendto(udp_client_socket_id, buf, 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-
-        buf[0] = prot_id_misc;
-        struct prot_misc data_misc = {
-            .ax = durin.telemetry.ax,
-            .ay = durin.telemetry.ay,
-            .az = durin.telemetry.az,
-            .gx = durin.telemetry.gx,
-            .gy = durin.telemetry.gx,
-            .gz = durin.telemetry.gy,
-            .mx = durin.telemetry.mx,
-            .my = durin.telemetry.my,
-            .mz = durin.telemetry.mz,
-            .battery_voltage_mv = durin.telemetry.battery_voltage * 1000,
-            .charge_percent = volt_to_percent(durin.telemetry.battery_voltage)
-        };
-
-        prot_build_misc(buf + 1, data_misc);
-        sendto(udp_client_socket_id, buf, prot_len_misc + 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-
-        buf[0] = prot_id_tof_12;
-        struct prot_tof_12 data_tof12 = {
-            .tof_1 = durin.telemetry.ranging_data[0],
-            .tof_2 = durin.telemetry.ranging_data[1]
-        };
-        prot_build_tof_12(buf + 1, data_tof12);
-        sendto(udp_client_socket_id, buf, prot_len_tof_12 + 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-
-        buf[0] = prot_id_tof_34;
-        struct prot_tof_34 data_tof34 = {
-            .tof_3 = durin.telemetry.ranging_data[2],
-            .tof_4 = durin.telemetry.ranging_data[3]
-        };
-        prot_build_tof_34(buf + 1, data_tof34);
-        sendto(udp_client_socket_id, buf, prot_len_tof_34 + 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-
-        buf[0] = prot_id_tof_56;
-        struct prot_tof_56 data_tof56 = {
-            .tof_5 = durin.telemetry.ranging_data[4],
-            .tof_6 = durin.telemetry.ranging_data[5]
-        };
-        prot_build_tof_56(buf + 1, data_tof56);
-        sendto(udp_client_socket_id, buf, prot_len_tof_56 + 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-
-        buf[0] = prot_id_tof_78;
-        struct prot_tof_78 data_tof78 = {
-            .tof_7 = durin.telemetry.ranging_data[6],
-            .tof_8 = durin.telemetry.ranging_data[7]
-        };
-        prot_build_tof_78(buf + 1, data_tof78);
-        sendto(udp_client_socket_id, buf, prot_len_tof_78 + 1, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-
-        buf[0] = prot_id_uwb_distance;
-        buf[1] = 0;
-        sendto(udp_client_socket_id, buf, 2, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+        
+        // struct sockaddr_in dest_addr;
+        // dest_addr.sin_addr.s_addr = durin.info.telemetry_udp_address;
+        // dest_addr.sin_family = AF_INET;
+        // dest_addr.sin_port = htons(durin.info.telemetry_udp_port);
+        // sendto(udp_client_socket_id, buf, 2, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     }
     PT_END(pt);
 }
@@ -239,12 +181,13 @@ void update_wifi(struct pt *pt) {
 void update_tcp_server(struct pt *pt) {
     PT_BEGIN(pt);
 
-    static struct protocol_state protocol_state;
+    static struct protocol_state protocol_state = {0};
     static struct sockaddr_in remote_addr;
 	static unsigned int socklen;
 	socklen = sizeof(remote_addr);
     static uint8_t rx_buf[1024];
     static uint8_t tx_buf[1024];
+    protocol_state.channel = CHANNEL_TCP;
 
     while (1) {
         PT_YIELD(pt);
@@ -253,21 +196,20 @@ void update_tcp_server(struct pt *pt) {
             PT_YIELD(pt);
             continue;
         }
-        static int client_socket = -1;
-        client_socket = accept(tcp_server_socket_id,(struct sockaddr *)&remote_addr, &socklen);
+        tcp_client_socket_id = accept(tcp_server_socket_id,(struct sockaddr *)&remote_addr, &socklen);
         
-        if (client_socket < 0) {
+        if (tcp_client_socket_id < 0) {
             // printf("no client\n");            
             PT_YIELD(pt);
             continue;
         }
-        fcntl(udp_client_socket_id, F_SETFL, O_NONBLOCK); // this doesn't work lmao, gotta use MSG_DONTWAIT
+        fcntl(tcp_client_socket_id, F_SETFL, O_NONBLOCK); // this doesn't work lmao, gotta use MSG_DONTWAIT
 
         // printf("new client\n");
         // handle client loop
         protocol_state.state = 0;
         while (1) {
-            int bytes_received = recv(client_socket, rx_buf, sizeof(rx_buf) - 1, MSG_DONTWAIT);
+            int bytes_received = recv(tcp_client_socket_id, rx_buf, sizeof(rx_buf) - 1, MSG_DONTWAIT);
 
             //no bytes available
             if (bytes_received < 0 ) {
@@ -276,7 +218,8 @@ void update_tcp_server(struct pt *pt) {
                     continue;
                 }
                 if (errno == ENOTCONN) {
-                    close(client_socket);
+                    close(tcp_client_socket_id);
+                    tcp_client_socket_id = -1;
                     break;
                 }
 
@@ -286,78 +229,7 @@ void update_tcp_server(struct pt *pt) {
             if (bytes_received > 0) {
                 // printf("WIFI got %d bytes\n", bytes_received);
                 for (uint16_t i = 0; i < bytes_received; i++) {
-                    uint16_t should_respond = protocol_parse_byte(&protocol_state, rx_buf[i]);
-                    // response is a global var (very cool)
-                    if (!should_respond) {
-                        continue;
-                    }
-                    if (response == prot_id_acknowledge) {
-                        tx_buf[0] = prot_id_acknowledge;
-                        send(client_socket, tx_buf, 1, 0);
-                    }
-                    if (response == prot_id_reject) {
-                        tx_buf[0] = prot_id_reject;
-                        send(client_socket, tx_buf, 1, 0);
-                    }
-                    if (response == prot_id_misc || response == prot_id_poll_all) {
-                        tx_buf[0] = prot_id_misc;
-                        struct prot_misc data = {
-                            .ax = durin.telemetry.ax,
-                            .ay = durin.telemetry.ay,
-                            .az = durin.telemetry.az,
-                            .gx = durin.telemetry.gx,
-                            .gy = durin.telemetry.gx,
-                            .gz = durin.telemetry.gy,
-                            .mx = durin.telemetry.mx,
-                            .my = durin.telemetry.my,
-                            .mz = durin.telemetry.mz,
-                            .battery_voltage_mv = durin.telemetry.battery_voltage * 1000,
-                            .charge_percent = volt_to_percent(durin.telemetry.battery_voltage)
-                        };
-                        prot_build_misc(tx_buf + 1, data);
-                        send(client_socket, tx_buf, prot_len_misc + 1, 0);
-                    }
-                    if (response == prot_id_tof_12 || response == prot_id_poll_all) {
-                        tx_buf[0] = prot_id_tof_12;
-                        struct prot_tof_12 data = {
-                            .tof_1 = durin.telemetry.ranging_data[0],
-                            .tof_2 = durin.telemetry.ranging_data[1]
-                        };
-                        prot_build_tof_12(tx_buf + 1, data);
-                        send(client_socket, tx_buf, prot_len_tof_12 + 1, 0);
-                    }
-                    if (response == prot_id_tof_34 || response == prot_id_poll_all) {
-                        tx_buf[0] = prot_id_tof_34;
-                        struct prot_tof_34 data = {
-                            .tof_3 = durin.telemetry.ranging_data[2],
-                            .tof_4 = durin.telemetry.ranging_data[3]
-                        };
-                        prot_build_tof_34(tx_buf + 1, data);
-                        send(client_socket, tx_buf, prot_len_tof_34 + 1, 0);
-                    }
-                    if (response == prot_id_tof_56 || response == prot_id_poll_all) {
-                        tx_buf[0] = prot_id_tof_12;
-                        struct prot_tof_56 data = {
-                            .tof_5 = durin.telemetry.ranging_data[4],
-                            .tof_6 = durin.telemetry.ranging_data[5]
-                        };
-                        prot_build_tof_56(tx_buf + 1, data);
-                        send(client_socket, tx_buf, prot_len_tof_56 + 1, 0);
-                    }
-                    if (response == prot_id_tof_78 || response == prot_id_poll_all) {
-                        tx_buf[0] = prot_id_tof_12;
-                        struct prot_tof_78 data = {
-                            .tof_7 = durin.telemetry.ranging_data[6],
-                            .tof_8 = durin.telemetry.ranging_data[7]
-                        };
-                        prot_build_tof_78(tx_buf + 1, data);
-                        send(client_socket, tx_buf, prot_len_tof_78 + 1, 0);
-                    }
-                    if (response == prot_id_uwb_distance || response == prot_id_poll_all) {
-                        tx_buf[0] = prot_id_uwb_distance;
-                        tx_buf[1] = 0;
-                        send(client_socket, tx_buf, 2, 0);
-                    }
+                    protocol_parse_byte(&protocol_state, rx_buf[i]);
                 }
             }
             PT_YIELD(pt);

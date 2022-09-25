@@ -79,5 +79,5 @@ void dx_set_baud(dynamixel_t *dx, uint8_t id, dx_baud_t baud);
 void dx_got_response(dynamixel_t *dx);
 
 #ifdef __cplusplus
-extern "C" }
+}
 #endif

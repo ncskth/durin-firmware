@@ -42,11 +42,6 @@ void update_imu(struct pt *pt) {
                 &durin.telemetry.ax, &durin.telemetry.ay, &durin.telemetry.az,
                 &durin.telemetry.gx, &durin.telemetry.gy, &durin.telemetry.gz,
                 &durin.telemetry.mx, &durin.telemetry.my, &durin.telemetry.mz);
-        if (durin.info.cycle_count % 1000 == 0) {
-                float ax, ay, az, gx, gy, gz, mx, my, mz;
-                icm20948_parseAllMetric(&icm, &ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
-                printf("accelerometer metric: %f %f %f %f %f %f %f %f %f\n", ax, ay, az, gx, gy, gz, mx, my, mz);
-        }
     }
     PT_END(pt);
 }

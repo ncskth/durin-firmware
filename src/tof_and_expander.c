@@ -65,12 +65,45 @@ void init_tof_and_expander() {
     }
 }
 
+void send_tof_telemetry(uint8_t start, uint8_t end) {
+    struct capn c;
+    capn_init_malloc(&c);
+    struct capn_segment *cs = capn_root(&c).seg;    
+    struct DurinBase msg;
+    uint8_t buf[1500];
+    uint16_t len;
+    struct TofObservations tof_observations;
+    tof_observations.observations = new_TofObservations_TofObservation_list(cs, end-start);
+    for (uint8_t i = start; i < end; i++) {
+        uint8_t id = i;
+        struct TofObservations_TofObservation observation;
+        observation.id = id;
+        uint8_t pixels = 64;
+        observation.ranges = capn_new_list16(cs, pixels);
+        capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
+        set_TofObservations_TofObservation(&observation, tof_observations.observations, i - start);        
+    }
+
+    msg.message.tofObservations = new_TofObservations(cs);
+    write_TofObservations(&tof_observations, msg.message.tofObservations);
+    msg.message_which = DurinBase_message_tofObservations;
+
+    DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
+    write_DurinBase(&msg, durin_response_ptr);
+    capn_setp(capn_root(&c), 0, durin_response_ptr.p);          
+    
+    len = capn_write_mem(&c, buf, sizeof(buf), CAPN_PACKED);
+    send_telemetry(buf, len);
+    capn_free(&c);
+}
+
 void update_tof_and_expander(struct pt *pt) {
     PT_BEGIN(pt);
 
     static uint32_t current_port_output = 1 << 16; // only 16 outputs so this value is "invalid"
     static uint8_t tof_index;
     static uint64_t last_tof_update;
+    static uint64_t last_tof_send;
     last_tof_update = esp_timer_get_time();
     while (1) {
         PT_YIELD(pt);
@@ -126,6 +159,14 @@ void update_tof_and_expander(struct pt *pt) {
                 }
             }
         }
+        if (esp_timer_get_time() - last_tof_send > durin.info.tof_stream_period * 1000) {
+            last_tof_send = esp_timer_get_time();
+            send_tof_telemetry(0, 2); //split into 4 to keep udp package <50
+            send_tof_telemetry(2, 4);
+            send_tof_telemetry(4, 6);
+            send_tof_telemetry(6, 8);
+        }
+
     }
     PT_END(pt);
 }

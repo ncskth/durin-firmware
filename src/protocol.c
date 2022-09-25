@@ -11,204 +11,455 @@
 #include "hardware.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
+#include "user_uart.h"
+#include "wifi.h"
 
-// I HATE CRC SO MUCH WHY ARE THERE 983274893247 PARAMETERS I NEED TO GET RIGHT FOR IT TO WORK
-uint16_t crc_ccitt_update( uint16_t crc, uint8_t data ) {
+#include "capnp_c.h"
+#include "schema.capnp.h"
 
-  uint16_t ret_val;
+#define fast_acknowledge(response, cs) {\
+    struct Acknowledge data;\
+    response->message.acknowledge = new_Acknowledge(cs);\
+    write_Acknowledge(&data, response->message.acknowledge);\
+    response->message_which = DurinBase_message_acknowledge;\
+}\
 
-  data ^= ( uint8_t )(crc) & (uint8_t )(0xFF);
-  data ^= data << 4;
+#define fast_reject(response, cs) {\
+    struct Reject data;\
+    response->message.reject = new_Reject(cs);\
+    write_Reject(&data, response->message.reject);\
+    response->message_which = DurinBase_message_reject;\
+}\
 
-  ret_val = ((((uint16_t)data << 8) | ((crc & 0xFF00) >> 8))
-            ^ (uint8_t)(data >> 4)
-            ^ ((uint16_t)data << 3));
+void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where);
 
-  return ret_val;
+void handle_enableStreaming(EnableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 
+void handle_disableStreaming(DisableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setRobotVelocity(SetRobotVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setWheelVelocity(SetWheelVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setLed(SetLed_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setBuzzer(SetBuzzer_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_otaUpdate(OtaUpdate_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_otaUpdateBegin(OtaUpdateBegin_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_otaUdateCommit(OtaUpdateCommit_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_getImuMeasurement(GetImuMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_getPosition(GetPosition_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_getTofObservations(GetTofObservations_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_getDistanceMeasurement(GetDistanceMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setImuStreamPeriod(SetImuStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setPositionStreamPeriod(SetPositionStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setSystemStatusStreamPeriod(SetSystemStatusStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setTofStreamPeriod(SetTofStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_powerOff(PowerOff_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+
+uint16_t build_packet(uint8_t *buf_in, uint16_t len_in, uint8_t *buf_out) {
+    buf_out[0] = '\n';
+    buf_out[1] = len_in & 0xff;
+    buf_out[2] = (len_in >> 8) &0xff;
+    memcpy(buf_out + 3, buf_in, len_in);
+    return len_in + 3;
 }
 
-uint16_t get_crc16z(uint8_t *p, uint16_t len) {
 
-  uint16_t crc16_data=0;
+void send_response(uint8_t *buf, uint16_t len, enum comm_channel where) {
+    uint8_t packet_buf[2048];
+    uint16_t packet_len = build_packet(buf, len, packet_buf);
+    if (where == CHANNEL_TCP) {
+        send_tcp(packet_buf, packet_len);
+    }
+    if (where == CHANNEL_UART) {
+        send_uart(packet_buf, packet_len);
+    }
+}
 
-  while(len--) {
-      crc16_data = crc_ccitt_update(crc16_data, p[0]); p++;
-  }
-
-  return(crc16_data);
-
+void send_telemetry(uint8_t *buf, uint16_t len) {
+    uint8_t packet_buf[2048];
+    uint16_t packet_len = build_packet(buf, len, packet_buf);
+    if (durin.info.streaming_enabled == false) {
+        return;
+    }
+    if (durin.info.telemetry_destination == EnableStreaming_destination_uartAndUdp) {
+        send_uart(packet_buf, packet_len);
+        send_udp(packet_buf, packet_len);
+    }
+    if (durin.info.telemetry_destination == EnableStreaming_destination_uartOnly) {
+        send_uart(packet_buf, packet_len);
+    }
+    if (durin.info.telemetry_destination == EnableStreaming_destination_udpOnly) {
+        send_udp(packet_buf, packet_len);
+    }
 }
 
 
-uint8_t response;
+void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
+    switch(state->state) {
+        case 0:
+            printf("got \\n\n");
+            if (byte == '\n') {
+                state->state = 1;
+            }
+            break;
 
-uint8_t protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
-    if (state->state == 0) {
-        state->id = byte;
-        state->expected_len = prot_id_to_len(state->id);
-        state->current_len = 0;
-        state->state = 1;
+        case 1:
+            printf("got len 1\n");
+            state->expected_len = byte;
+            state->state = 2;   
+            break;
+
+        case 2:
+            state->expected_len += byte << 8;
+            state->current_len = 0;
+            state->state = 3;
+            if (state->expected_len == 0) {
+                decode_message(state->payload_buf, state->current_len, state->channel);
+                state->state = 0;
+            }
+            printf("got len 2 %d\n", state->expected_len);
+            break;
+
+        case 3:
+            state->payload_buf[state->current_len] = byte;
+            state->current_len++;
+            if (state->current_len == state->expected_len) {
+                decode_message(state->payload_buf, state->current_len, state->channel);
+                state->state = 0;
+                printf("decoding message\n");
+            }
+            break;
+    }
+}
+
+void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
+    struct capn read_c;
+    capn_init_mem(&read_c, buf, len, CAPN_PACKED /* packed */);
+    DurinBase_ptr rroot;
+    struct DurinBase base;
+    rroot.p = capn_getp(capn_root(&read_c), 0 /* off */, 1 /* resolve */);
+    read_DurinBase(&base, rroot);
+
+ 
+    struct capn response_c;
+    capn_init_malloc(&response_c);
+    struct capn_segment *cs = capn_root(&response_c).seg;    
+    struct DurinBase durin_response;
+
+    switch (base.message_which) {
+        case DurinBase_message_enableStreaming:
+            handle_enableStreaming(base.message.enableStreaming, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_disableStreaming:
+            handle_disableStreaming(base.message.disableStreaming, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_powerOff:
+            handle_powerOff(base.message.powerOff, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_setRobotVelocity:
+            handle_setRobotVelocity(base.message.setRobotVelocity, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_setWheelVelocity:
+            handle_setWheelVelocity(base.message.setWheelVelocity, &durin_response, cs);
+            break;
+
+        case DurinBase_message_setLed:
+            handle_setLed(base.message.setLed, &durin_response, cs);
+            break;
+
+        case DurinBase_message_setBuzzer:
+            handle_setBuzzer(base.message.setBuzzer, &durin_response, cs);
+            break;
+
+        case DurinBase_message_otaUpdate:
+            handle_otaUpdate(base.message.otaUpdate, &durin_response, cs);
+            break;
+
+        case DurinBase_message_otaUpdateCommit:
+            handle_otaUdateCommit(base.message.otaUpdateCommit, &durin_response, cs);
+            break;
+
+        case DurinBase_message_getImuMeasurement:
+            handle_getImuMeasurement(base.message.getImuMeasurement, &durin_response, cs);
+            break;
+
+        case DurinBase_message_getPosition:
+            handle_getPosition(base.message.getPosition, &durin_response, cs);
+            break;
+
+        case DurinBase_message_getSystemStatus:
+            handle_getSystemStatus(base.message.getSystemStatus, &durin_response, cs);
+            break;
+
+        case DurinBase_message_getTofObservations:
+            handle_getTofObservations(base.message.getTofObservations, &durin_response, cs);
+            break;
+
+        case DurinBase_message_getDistanceMeasurement:
+            handle_getDistanceMeasurement(base.message.getDistanceMeasurement, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_setImuStreamPeriod:
+            handle_setImuStreamPeriod(base.message.setImuStreamPeriod, &durin_response, cs);
+            break;
+
+        case DurinBase_message_setPositionStreamPeriod:
+            handle_setPositionStreamPeriod(base.message.setPositionStreamPeriod, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_setSystemStatusStreamPeriod:
+            handle_setSystemStatusStreamPeriod(base.message.setSystemStatusStreamPeriod, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_setTofStreamPeriod:
+            handle_setTofStreamPeriod(base.message.setTofStreamPeriod, &durin_response, cs);
+            break;
+
+        case DurinBase_message_otaUpdateBegin:
+            handle_otaUpdateBegin(base.message.otaUpdateBegin, &durin_response, cs);
+            break;
+        
+        case DurinBase_message_enableLogging:
+            handle_enableLogging(base.message.enableLogging, &durin_response, cs);
+            break;
+
+        default:
+            fast_reject((&durin_response), cs);
+    }
+
+
+    DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
+    write_DurinBase(&durin_response, durin_response_ptr);
+    capn_setp(capn_root(&response_c), 0, durin_response_ptr.p);
+
+    uint8_t response_buf[2048];
+    uint16_t response_len = capn_write_mem(&response_c, response_buf, sizeof(response_buf), CAPN_PACKED);
+    capn_free(&read_c);
+    capn_free(&response_c);
+    send_response(response_buf, response_len, where);
+}
+
+void handle_enableStreaming(EnableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct EnableStreaming data;
+    uint8_t *raw_ip = (uint8_t*) &durin.info.telemetry_udp_address;
+    read_EnableStreaming(&data, msg);
+    durin.info.telemetry_destination = data.destination_which;
+    durin.info.streaming_enabled = true;
+    // i think oyu need to resolve the pointer which capn_len does. Took a long time to figure out...
+    if (capn_len(data.destination.udpOnly.ip) != 4) {
+        fast_reject(response, cs);
+        return;
+    }
+    
+    if (data.destination_which == EnableStreaming_destination_udpOnly) {
+        raw_ip[0] = capn_get8(data.destination.udpOnly.ip, 0);
+        raw_ip[1] = capn_get8(data.destination.udpOnly.ip, 1);
+        raw_ip[2] = capn_get8(data.destination.udpOnly.ip, 2);
+        raw_ip[3] = capn_get8(data.destination.udpOnly.ip, 3);
+        durin.info.telemetry_udp_port = data.destination.udpOnly.port;
+    } else
+    if (data.destination_which == EnableStreaming_destination_uartAndUdp) {
+        raw_ip[0] = capn_get8(data.destination.uartAndUdp.ip, 0);
+        raw_ip[1] = capn_get8(data.destination.uartAndUdp.ip, 1);
+        raw_ip[2] = capn_get8(data.destination.uartAndUdp.ip, 2);
+        raw_ip[3] = capn_get8(data.destination.uartAndUdp.ip, 3);
+        durin.info.telemetry_udp_port = data.destination.uartAndUdp.port;
     } else {
-        state->payload_buf[state->current_len] = byte;
-        state->current_len += 1;
+        fast_reject(response, cs);
+        return;
     }
 
-    if (state->current_len == state->expected_len) {
-        //printf("got id %d\n", state->id);
-        prot_parse(state->id,state->payload_buf);
-        durin.info.last_message_received = esp_timer_get_time();
-        state->state = 0;
-        return 1;
-    }
-    return 0;
+    fast_acknowledge(response, cs);
 }
 
-void prot_rx_power_off(struct prot_power_off data) {
+void handle_disableStreaming(DisableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    durin.info.streaming_enabled = false;
+}
+
+void handle_powerOff(PowerOff_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     printf("power off command goodbye!\n");
+    fast_acknowledge(response, cs);    
     vTaskDelay(100);
     power_off();
-    response = prot_id_acknowledge; // hard to respond though
 }
 
-void prot_rx_move_rob_centric(struct prot_move_rob_centric data) {
-    durin.control.control_id = prot_id_move_rob_centric;
-    durin.control.robot_velocity.velocity_x = data.vel_x_mms;
-    durin.control.robot_velocity.velocity_y = data.vel_y_mms;
-    durin.control.robot_velocity.rotation_cw = data.rot_degs;
-    response = prot_id_acknowledge;
+void handle_setRobotVelocity(SetRobotVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    read_SetRobotVelocity(&durin.control.setRobotVelocity, msg);
+    fast_acknowledge(response, cs);
 }
 
-void prot_rx_move_wheels(struct prot_move_wheels data) {
-    durin.control.control_id = prot_id_move_wheels; 
-    durin.control.motor_velocity.motor_1 = data.motor_1_mms;
-    durin.control.motor_velocity.motor_2 = data.motor_2_mms;
-    durin.control.motor_velocity.motor_3 = data.motor_3_mms;
-    durin.control.motor_velocity.motor_4 = data.motor_4_mms;
-    response = prot_id_acknowledge;
+void handle_setWheelVelocity(SetWheelVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    read_SetWheelVelocity(&durin.control.setWheelVelocity, msg);
+
+    fast_acknowledge(response, cs);
 }
 
-void prot_rx_start_stream(struct prot_start_stream data) {
-    durin.info.telemetry_udp_address = data.ip;
-    durin.info.telemetry_udp_port = data.port;
-    durin.info.telemetry_udp_rate = data.rate_ms;
-    durin.info.telemetry_udp_enabled = 1;
-    response = prot_id_acknowledge;
+void handle_setLed(SetLed_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetLed data;
+    read_SetLed(&data, msg);
+    set_led(data.ledR, data.ledG, data.ledB);
+    fast_acknowledge(response, cs);
 }
 
-void prot_rx_stop_stream(struct prot_stop_stream data) {
-    durin.info.telemetry_udp_enabled = 0;
-    response = prot_id_acknowledge;
+void handle_setBuzzer(SetBuzzer_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetBuzzer data;
+    read_SetBuzzer(&data, msg);
+    set_buzzer(data.enabled);
+    fast_acknowledge(response, cs);
 }
 
-void prot_rx_set_led(struct prot_set_led data) {
-    set_led(data.led_r, data.led_g, data.led_b);
-    response = prot_id_acknowledge;
+void handle_getImuMeasurement(GetImuMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct ImuMeasurement imu;
+    imu.accelerometerXG = durin.telemetry.ax;
+    imu.accelerometerYG = durin.telemetry.ay;
+    imu.accelerometerZG = durin.telemetry.az;
+    imu.gyroscopeXRads = durin.telemetry.gx;
+    imu.gyroscopeYRads = durin.telemetry.gy;
+    imu.gyroscopeZRads = durin.telemetry.gz;
+    imu.magnetometerXUt = durin.telemetry.mx;
+    imu.magnetometerYUt = durin.telemetry.my;
+    imu.magnetometerZUt = durin.telemetry.mz;
+    response->message.imuMeasurement = new_ImuMeasurement(cs);
+    write_ImuMeasurement(&imu, response->message.imuMeasurement);
+    response->message_which = DurinBase_message_imuMeasurement;
 }
 
-void prot_rx_poll_sensor(struct prot_poll_sensor data) {
-    response = data.sensor_id;
-}
-
-void prot_rx_poll_all(struct prot_poll_all data) {
-    response = prot_id_poll_all;
-}
-
-void prot_rx_set_buzzer(struct prot_set_buzzer data) {
-    set_buzzer(data.intensity);
-    response = prot_id_acknowledge;
-}
-
-void prot_rx_set_node_id(struct prot_set_node_id data) {
-    durin_persistent.node_id = data.node_id;
-    update_persistent_data();
-    response = prot_id_acknowledge;
-}
-
-void prot_rx_wifi_config(struct prot_wifi_config data) {
-    memcpy(durin_persistent.main_ssid, data.main_ssid, sizeof(durin_persistent.main_ssid));
-    memcpy(durin_persistent.main_password, data.main_password, sizeof(durin_persistent.main_password));
-    update_persistent_data();
-    response = prot_id_acknowledge;
-}
-
-void prot_rx_ota_packet(struct prot_ota_packet data) {
-    static bool ota_in_progress = false;
-    static esp_partition_t *ota_partition;
-    static esp_ota_handle_t ota_handle;
-    static int32_t last_frame_number;
-    static uint8_t first;
-    esp_err_t e;
-    response = prot_id_acknowledge;
-    if (!ota_in_progress) {
-        first = 1;
-        if (data.frame_length == 0) {
-            esp_ota_mark_app_valid_cancel_rollback();
-            vTaskDelay(100);
-            return;
-        }
-
-        if (data.frame_number != 0) {
-            goto error;
-        }
-
-        ota_partition = esp_ota_get_next_update_partition(NULL);
-        if (ota_partition == NULL) {
-            ota_partition = esp_partition_find(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_APP_OTA_0, NULL);
-        }
-        if (ota_partition == NULL) {
-            goto error;
-        }
-
-        e = esp_ota_begin(ota_partition, 0, &ota_handle); 
-        if (e != ESP_OK) {
-            goto error;
-        }
-
-        ota_in_progress = true;
-        last_frame_number = -1; 
+void handle_getPosition(GetPosition_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct Position position;
+    if (durin.telemetry.fix_type == 3) {
+        position.position.vector.x = durin.telemetry.pos_x;
+        position.position.vector.y = durin.telemetry.pos_y;
+        position.position.vector.z = durin.telemetry.pos_z;
+        position.position_which = Position_position_vector;
+    } else {
+        position.position_which = Position_position_unknown;
     }
 
-    //check crc
-    if (data.checksum != get_crc16z(data.data, data.frame_length)) {
-        goto error;
+    response->message.position = new_Position(cs);
+    write_Position(&position, response->message.position);
+    response->message_which = DurinBase_message_position;
+}
+
+void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SystemStatus status;
+    status.batteryMv = durin.telemetry.battery_voltage * 1000;
+    status.batteryPercent = 0; //TODO: 
+
+    response->message.systemStatus = new_SystemStatus(cs);
+    write_SystemStatus(&status, response->message.systemStatus);
+    response->message_which = DurinBase_message_systemStatus;
+}
+
+void handle_getTofObservations(GetTofObservations_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct GetTofObservations request;
+    struct TofObservations tof_observations;
+    read_GetTofObservations(&request, msg);
+    tof_observations.observations = new_TofObservations_TofObservation_list(cs, capn_len(request.ids));
+    for (uint8_t i = 0; i < capn_len(request.ids); i++) {
+        uint8_t id = capn_get8(request.ids, i);
+        struct TofObservations_TofObservation observation;
+        observation.id = id;
+        uint8_t pixels = 64;
+        observation.ranges = capn_new_list16(cs, pixels);
+        capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
+        set_TofObservations_TofObservation(&observation, tof_observations.observations, i);        
     }
 
+    response->message.tofObservations = new_TofObservations(cs);
+    write_TofObservations(&tof_observations, response->message.tofObservations);
+    response->message_which = DurinBase_message_tofObservations;
+}
 
-    //check frame number
-    if (data.frame_number != last_frame_number + 1) {
-        first = 0;
-        printf("frame number gotten %d  wanted %d\n", data.frame_number, last_frame_number + 1);
+void handle_getDistanceMeasurement(GetDistanceMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    
+}
 
-        goto error;
+void handle_setImuStreamPeriod(SetImuStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetImuStreamPeriod data;
+    read_SetImuStreamPeriod(&data, msg);
+    durin.info.imu_stream_period = data.periodMs;
+}
+
+void handle_setPositionStreamPeriod(SetPositionStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetPositionStreamPeriod data;
+    read_SetPositionStreamPeriod(&data, msg);
+    durin.info.position_stream_period = data.periodMs;
+}
+
+void handle_setSystemStatusStreamPeriod(SetSystemStatusStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetSystemStatusStreamPeriod data;
+    read_SetSystemStatusStreamPeriod(&data, msg);
+    durin.info.systemstatus_stream_period = data.periodMs;
+}
+
+void handle_setTofStreamPeriod(SetTofStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetTofStreamPeriod data;
+    read_SetTofStreamPeriod(&data, msg);
+    durin.info.tof_stream_period = data.periodMs;
+}
+
+
+esp_ota_handle_t ota_handle;
+esp_partition_t *ota_partition;
+bool ota_started = false;
+void handle_otaUpdateBegin(OtaUpdateBegin_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    uint8_t stop = false;
+    ota_partition = esp_ota_get_next_update_partition(NULL);
+    bool ret = esp_ota_begin(ota_partition, 0, &ota_handle);
+    if (ret == ESP_OK) {
+        fast_acknowledge(response, cs);
+        ota_started = 1;
+    } else {
+        fast_reject(response, cs);
     }
+    ota_started = ret;
+}
 
-    last_frame_number++;
-    //write
-    e = esp_ota_write(ota_handle, data.data, data.frame_length);
-    if (e != ESP_OK) {
-        printf("couldn't write\n");
-        goto error;
+void handle_otaUpdate(OtaUpdate_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct OtaUpdate data;
+    read_OtaUpdate(&data, msg);
+    bool ret = esp_ota_write(ota_handle, capn_len(data.data), capn_len(data.data));
+    if (ret == ESP_OK) {
+        fast_acknowledge(response, cs);
+    } else {
+        fast_reject(response, cs);
     }
+}
 
-    //end
-    if (data.frame_length < 255) {
-        printf("yeah i am done %d\n", data.frame_length);
-        e = esp_ota_end(ota_handle);
+void handle_otaUdateCommit(OtaUpdateCommit_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    if (ota_started) {
+        esp_ota_end(ota_handle);
         esp_ota_set_boot_partition(ota_partition);
-        vTaskDelay(100);
-        power_off();
-        if (e != ESP_OK) {
-            goto error;
-        } 
-    }
-    return;
+        printf("Update done, restarting\n");
+        vTaskDelay(2000);
+        esp_restart();
+    } else {
+        const esp_partition_t *part = esp_ota_get_running_partition();
+        esp_ota_img_states_t state;
+        esp_ota_get_state_partition(part, &state);
+        if (state == ESP_OTA_IMG_NEW || state == ESP_OTA_IMG_PENDING_VERIFY) {
+            int e = esp_ota_mark_app_valid_cancel_rollback();
+            if (e == 0) {
+                fast_acknowledge(response, cs);
+                printf("confirmed update\n");
+            } else {
+                fast_reject(response, cs);
+                printf("Something went wrong when confirming\n");
+            }
+        } else {
+            printf("confirmation not needed\n");
+            fast_reject(response, cs);
+        }
+    } 
+}
 
-    error:
-    if (ota_in_progress) {
-        esp_ota_abort(ota_handle);
-        ota_in_progress = false;
-    }
-    response = prot_id_reject;
-    return;
+void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct EnableLogging data;
+    read_EnableLogging(&data, msg);
+    durin.info.logging_enabled = data.enabled;
+    fast_acknowledge(response, cs);
 }

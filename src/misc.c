@@ -61,6 +61,9 @@ void set_buzzer(uint8_t intensity) {
 }
 
 void init_misc() {
+    // install gpio isr
+    gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
+
     durin.hw.port_expander_output = ~0;
     durin.info.motor_enabled = false;
     durin.info.user_enabled = false;
@@ -72,7 +75,7 @@ void init_misc() {
         err = nvs_flash_init();
     }
     err = nvs_open("storage", NVS_READWRITE, &durin_nvs);
-    uint len;
+    uint len = 255;
     err = nvs_get_blob(durin_nvs, "durin_nvs", &durin_persistent, &len);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
         memcpy(durin_persistent.main_ssid, DEFAULT_SSID, sizeof(DEFAULT_SSID));

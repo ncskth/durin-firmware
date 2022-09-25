@@ -294,5 +294,5 @@ void dx_set_status_return_level(dynamixel_t *dx, uint8_t id, dx_status_return_le
 }
 
 #ifdef __cplusplus
-extern "C" }
+}
 #endif
