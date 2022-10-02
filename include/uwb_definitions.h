@@ -2,8 +2,7 @@
 
 #define UWB_BROADCAST_ID 0xff
 #define UWB_MAGIC_WORD "cskth"
-#define BROADCAST_RESPONSE_SLOT 10000 // 10ms
-#define MESSAGE_SEND_TIME 1000 // 1 ms, so each poll+response will take 2ms
+#define BROADCAST_RESPONSE_SLOT_MS 10 // 10ms
 
 #define UWB_CONFIG {\
     9,               /* Channel number. */\
@@ -25,33 +24,34 @@
 #define UWB_HAS_2D_POSITION_BITMASK (1 << 1)
 #define UWB_IS_ANCHOR_BITMASK (1 << 2)
 
-#define GET_BROADCAST_WAIT_MS(id) (BROADCAST_RESPONSE_SLOT * 1.5 + BROADCAST_RESPONSE_SLOT * id)
-#define BROADCAST_BUSY_FOR_MS (BROADCAST_RESPONSE_SLOT * 256)
-#define SINGLE_BUSY_FOR_MS (MESSAGE_SEND_TIME / 1000) //or until it has gotten a response
+#define GET_BROADCAST_WAIT_MS(id) (BROADCAST_RESPONSE_SLOT_MS * 1.5 + BROADCAST_RESPONSE_SLOT_MS * id)
+#define BROADCAST_BUSY_FOR_MS (BROADCAST_RESPONSE_SLOT_MS * 257.5)
+#define SINGLE_BUSY_FOR_MS (1) //or until it has gotten a response
 
 enum uwb_msg_types {
-    UWB_MSG_POLL_RANGING,
-    UWB_MSG_RESPONSE_RANGING,
-    UWB_MSG_POLL_ALIVE,
-    UWB_MSG_IS_ALIVE,
-    UWB_MSG_GIVE_WORD,
-    UWB_MSG_SYSTEM_STATUS
+    UWB_MSG_POLL_RANGING = 0,
+    UWB_MSG_RESPONSE_RANGING = 1,
+    UWB_MSG_POLL_ALIVE = 2,
+    UWB_MSG_IS_ALIVE = 3,
+    UWB_MSG_GIVE_WORD = 4,
+    UWB_MSG_SYSTEM_STATUS = 5,
+    UWB_MSG_QUIET = 6,
 };
 
 enum uwb_purposes {
-    UWB_PURPOSE_BEACON_ORIGIN,
-    UWB_PURPOSE_BEACON_X,
-    UWB_PURPOSE_BEACON_Y,
-    UWB_PURPOSE_BEACON_Z,
-    UWB_PURPOSE_BEACON_REPEATER,
-    UWB_PURPOSE_USER,
-    UWB_PURPOSE_BEACON_UNKNOWN,
+    UWB_PURPOSE_BEACON_ORIGIN = 0,
+    UWB_PURPOSE_BEACON_X = 1,
+    UWB_PURPOSE_BEACON_Y = 2,
+    UWB_PURPOSE_BEACON_Z = 3,
+    UWB_PURPOSE_BEACON_REPEATER = 4,
+    UWB_PURPOSE_BEACON_DYNAMIC = 5,
+    UWB_PURPOSE_USER = 6,
 };
 
 enum uwb_system_status {
-    UWB_SYSTEM_STATUS_CALIBRATING,
-    UWB_SYSTEM_STATUS_ERROR,
-    UWB_SYSTEM_STATUS_GOOD,
+    UWB_SYSTEM_STATUS_CALIBRATING = 0,
+    UWB_SYSTEM_STATUS_ERROR = 1,
+    UWB_SYSTEM_STATUS_GOOD = 2,
 };
 
 #pragma pack(1)
@@ -101,4 +101,10 @@ struct uwb_give_word {
 struct uwb_system_status_msg {
     struct uwb_header header;
     uint8_t status;
+};
+
+#pragma pack(1)
+struct uwb_quiet {
+    struct uwb_header header;
+    uint16_t duration;
 };

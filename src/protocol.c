@@ -34,7 +34,6 @@
 void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where);
 
 void handle_enableStreaming(EnableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs);
-
 void handle_disableStreaming(DisableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 void handle_setRobotVelocity(SetRobotVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 void handle_setWheelVelocity(SetWheelVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs);
@@ -54,6 +53,8 @@ void handle_setSystemStatusStreamPeriod(SetSystemStatusStreamPeriod_ptr msg, str
 void handle_setTofStreamPeriod(SetTofStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 void handle_powerOff(PowerOff_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setWifiConfig(SetWifiConfig_ptr msg, struct DurinBase *response, struct capn_segment *cs);
+void handle_setNodeId(SetNodeId_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 
 uint16_t build_packet(uint8_t *buf_in, uint16_t len_in, uint8_t *buf_out) {
     buf_out[0] = '\n';
@@ -97,7 +98,6 @@ void send_telemetry(uint8_t *buf, uint16_t len) {
 void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
     switch(state->state) {
         case 0:
-            printf("got \\n\n");
             if (byte == '\n') {
                 state->state = 1;
             }
@@ -139,7 +139,6 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
     struct DurinBase base;
     rroot.p = capn_getp(capn_root(&read_c), 0 /* off */, 1 /* resolve */);
     read_DurinBase(&base, rroot);
-
  
     struct capn response_c;
     capn_init_malloc(&response_c);
@@ -227,6 +226,14 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
             handle_enableLogging(base.enableLogging, &durin_response, cs);
             break;
         
+        case DurinBase_setWifiConfig:
+            handle_setWifiConfig(base.setWifiConfig, &durin_response, cs);
+            break;
+        
+        case DurinBase_setNodeId:
+            handle_setNodeId(base.setNodeId, &durin_response, cs);
+            break;
+
         default:
             fast_reject((&durin_response), cs);
     }
@@ -236,6 +243,7 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
     write_DurinBase(&durin_response, durin_response_ptr);
     capn_setp(capn_root(&response_c), 0, durin_response_ptr.p);
 
+    durin.info.last_message_received = esp_timer_get_time();
     uint8_t response_buf[2048];
     uint16_t response_len = capn_write_mem(&response_c, response_buf, sizeof(response_buf), CAPN_PACKED);
     capn_free(&read_c);
@@ -289,12 +297,13 @@ void handle_powerOff(PowerOff_ptr msg, struct DurinBase *response, struct capn_s
 
 void handle_setRobotVelocity(SetRobotVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     read_SetRobotVelocity(&durin.control.setRobotVelocity, msg);
+    durin.control.control_type = DurinBase_setRobotVelocity;
     fast_acknowledge(response, cs);
 }
 
 void handle_setWheelVelocity(SetWheelVelocity_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     read_SetWheelVelocity(&durin.control.setWheelVelocity, msg);
-
+    durin.control.control_type = DurinBase_setWheelVelocity;
     fast_acknowledge(response, cs);
 }
 
@@ -460,5 +469,22 @@ void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, str
     struct EnableLogging data;
     read_EnableLogging(&data, msg);
     durin.info.logging_enabled = data.which;
+    fast_acknowledge(response, cs);
+}
+
+void handle_setWifiConfig(SetWifiConfig_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetWifiConfig data;
+    read_SetWifiConfig(&data, msg);
+    memcpy(durin_persistent.main_ssid, data.ssid.str, data.ssid.len + 1); //+1 because 0 terminated
+    memcpy(durin_persistent.main_password, data.password.str, data.password.len + 1);
+    update_persistent_data();
+    fast_acknowledge(response, cs);
+}
+
+void handle_setNodeId(SetNodeId_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
+    struct SetNodeId data;
+    read_SetNodeId(&data, msg);
+    durin_persistent.node_id = data.nodeId;
+    update_persistent_data();
     fast_acknowledge(response, cs);
 }
