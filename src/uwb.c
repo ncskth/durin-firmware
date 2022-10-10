@@ -13,6 +13,8 @@
 #include "position_solver.h"
 #include "durin.h"
 
+#define USER_UART
+
 /* Default antenna delay values for 64 MHz PRF. */
 #define TX_ANT_DLY 16385
 #define RX_ANT_DLY 16385
@@ -23,7 +25,7 @@
 #define MIN_TRX_DELAY 700
 
 #define TIME_TO_INACTIVE_US 10000000
-#define INACTIVE_POLL_PERIOD_MS 300
+#define INACTIVE_POLL_PERIOD_MS 10000
 
 static void send_message_delayed(uint8_t* buf, uint8_t len, uint64_t ts);
 static void send_message_global(uint8_t* buf, uint8_t len);
@@ -52,9 +54,6 @@ uint8_t user_ids_index = 0;
 uint64_t last_poll_received_at = 0;
 uint64_t quiet_until = 0;
 uint64_t last_message_received_at = 0;
-
-volatile struct distance_measurement distance_measurements[32];
-volatile uint8_t distance_measurements_index = 0;
 
 IRAM_ATTR void uwb_irq(TaskHandle_t *uwb_task) {
     int has_awoken;
@@ -114,9 +113,9 @@ void init_uwb() {
 
     uwb_mutex = xSemaphoreCreateMutex();
     static TaskHandle_t uwb_reading_task_handle;
-    xTaskCreatePinnedToCore(uwb_reading_task, "uwb_reading_task", 4096, NULL, configMAX_PRIORITIES - 1, &uwb_reading_task_handle, 1);
-    xTaskCreatePinnedToCore(uwb_misc_task, "uwb_misc_task", 4096, NULL, 6, &uwb_misc_task_handle, 1);
-    xTaskCreatePinnedToCore(uwb_send_task, "uwb_send_task", 4096, NULL, 7, &uwb_send_task_handle, 1);
+    xTaskCreatePinnedToCore(uwb_reading_task, "uwb_reading_task", 4096, NULL, configMAX_PRIORITIES - 1, &uwb_reading_task_handle, TRASH_CORE);
+    xTaskCreatePinnedToCore(uwb_misc_task, "uwb_misc_task", 8096, NULL, 2, &uwb_misc_task_handle, TRASH_CORE);
+    xTaskCreatePinnedToCore(uwb_send_task, "uwb_send_task", 4096, NULL, 2, &uwb_send_task_handle, TRASH_CORE);
 
     gpio_set_direction(PIN_IRQ_UWB, GPIO_MODE_INPUT);
     gpio_set_intr_type(PIN_IRQ_UWB, GPIO_INTR_POSEDGE);
@@ -130,7 +129,7 @@ void uwb_reading_task() {
     
     while (1) {
         uint32_t notification_value;
-        xTaskNotifyWait(0, 0, &notification_value, 10);
+        xTaskNotifyWait(0, 0, &notification_value, 100);
         
         xSemaphoreTake(uwb_mutex, portMAX_DELAY);
         uint32_t sys_status = dwt_read32bitreg(SYS_STATUS_ID);
@@ -156,6 +155,7 @@ void uwb_reading_task() {
 
 void uwb_send_task() {
     while (true) {
+        printf("line %d\n", __LINE__);
         xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
         vTaskDelay(GET_BROADCAST_WAIT_MS(durin_persistent.node_id));
         send_message_instantly(uwb_send_task_buf, uwb_send_task_len);
@@ -184,6 +184,9 @@ void uwb_misc_task() {
         }
     }
 
+    user_ids_index = 0;
+    quiet_until = 0;
+    next_poll_index = 0;
     struct uwb_poll_alive poll_msg = {
         .header.magic = UWB_MAGIC_WORD,
         .header.msg_type = UWB_MSG_POLL_ALIVE,
@@ -202,13 +205,16 @@ void uwb_misc_task() {
     send_message_global(&self_response_msg, sizeof(self_response_msg));
     vTaskDelay(BROADCAST_BUSY_FOR_MS);
 
+
     while (true) {
         uint64_t current_time = esp_timer_get_time();
         if (
             current_time - last_poll_sent_at > user_ids_index * SINGLE_BUSY_FOR_MS * 1000 &&
             current_time - last_poll_received_at > SINGLE_BUSY_FOR_MS * 1000 &&
-            current_time < quiet_until
+            current_time > quiet_until &&
+            all_beacon_ids_index > 0
         ) {
+
             struct uwb_poll_ranging msg = {
                 .header.magic = UWB_MAGIC_WORD,
                 .header.msg_type = UWB_MSG_POLL_RANGING,
@@ -217,6 +223,8 @@ void uwb_misc_task() {
             };
             send_message_instantly(&msg, sizeof(msg));
             last_poll_sent_at = esp_timer_get_time();
+            printf("polled %d\n", all_beacon_ids[next_poll_index]);
+            vTaskDelay(1);
 
             next_poll_index = (next_poll_index + 1) % all_beacon_ids_index;
             if (next_poll_index == 0) {
@@ -224,8 +232,11 @@ void uwb_misc_task() {
                     durin.telemetry.pos_x, 
                     durin.telemetry.pos_y, 
                     durin.telemetry.pos_z
-                };
+                };  
+
+
                 solve_for_position(durin.telemetry.distance_data, durin.telemetry.distance_index, &pos, &durin.telemetry.fix_type);
+                durin.telemetry.distance_index = 0;
                 durin.telemetry.pos_x = pos.x;
                 durin.telemetry.pos_y = pos.y;
                 durin.telemetry.pos_z = pos.z;
@@ -234,24 +245,35 @@ void uwb_misc_task() {
                     last_telemetry_update = current_time;
                 }
             }
+        } else {
+            vTaskDelay(1);
+            durin.telemetry.pos_x = 0;
+            durin.telemetry.pos_y = 0;
+            durin.telemetry.pos_z = 0;
+            durin.telemetry.fix_type = 0;
+            if (current_time - last_telemetry_update > (1000 +durin.info.position_stream_period) * 1000) {
+                send_position_telemetry();
+                last_telemetry_update = current_time;
+            }
         }
     }
+    
 }
 
 void send_position_telemetry() {
     struct capn c;
     capn_init_malloc(&c);
-    struct capn_segment *cs = capn_root(&c).seg;    
+    struct capn_segment *cs = capn_root(&c).seg;
     struct DurinBase msg;
-    uint8_t buf[256];
+    uint8_t buf[512];
     uint16_t len;
     struct Position position;
 
     if (durin.telemetry.fix_type == 3) {
         position.which = Position_vector;
-        position.vector.x = durin.telemetry.pos_x;
-        position.vector.y = durin.telemetry.pos_y;
-        position.vector.z = durin.telemetry.pos_z;
+        position.vector.x = durin.telemetry.pos_x * 1000;
+        position.vector.y = durin.telemetry.pos_y * 1000;
+        position.vector.z = durin.telemetry.pos_z * 1000;
     } else {
         position.which = Position_unknown;
     }
@@ -267,6 +289,70 @@ void send_position_telemetry() {
     len = capn_write_mem(&c, buf, sizeof(buf), CAPN_PACKED);
     send_telemetry(buf, len);
     capn_free(&c);
+
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // uint8_t end = 4;
+    // uint8_t start = 1;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // struct capn c;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // capn_init_malloc(&c);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // struct capn_segment *cs = capn_root(&c).seg;    
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // struct DurinBase msg;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // uint8_t buf[1500];
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // uint16_t len;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // struct TofObservations tof_observations;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // tof_observations.observations = new_TofObservations_TofObservation_list(cs, end-start);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // for (uint8_t i = start; i < end; i++) {
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     uint8_t id = i;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     struct TofObservations_TofObservation observation;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     observation.id = id;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     uint8_t pixels = 64;
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     observation.ranges = capn_new_list16(cs, pixels);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    //     set_TofObservations_TofObservation(&observation, tof_observations.observations, i - start);        
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // }
+    // printf("%s %d\n", __FILE__, __LINE__);
+
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // msg.tofObservations = new_TofObservations(cs);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // write_TofObservations(&tof_observations, msg.tofObservations);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // msg.which = DurinBase_tofObservations;
+    // printf("%s %d\n", __FILE__, __LINE__);
+
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // write_DurinBase(&msg, durin_response_ptr);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // capn_setp(capn_root(&c), 0, durin_response_ptr.p);          
+    // printf("%s %d\n", __FILE__, __LINE__);
+    
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // len = capn_write_mem(&c, buf, sizeof(buf), CAPN_PACKED);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // send_telemetry(buf, len);
+    // printf("%s %d\n", __FILE__, __LINE__);
+    // capn_free(&c);
+    // printf("%s %d\n", __FILE__, __LINE__);
+
 }
 
 static uint64_t get_tx_timestamp_u64(void) {
@@ -393,14 +479,14 @@ static void uwb_parse_message() {
         }
         struct distance_measurement new_measurement;
         new_measurement.id = header->sender;
-        new_measurement.distance = 1000 * tof * SPEED_OF_LIGHT; // the 1.05 seems to make it better
+        new_measurement.distance = 1000 * tof * SPEED_OF_LIGHT;
         new_measurement.error = rx_msg->error;
         new_measurement.position_x = rx_msg->position_x;
         new_measurement.position_y = rx_msg->position_y;
         new_measurement.position_z = rx_msg->position_z;
         new_measurement.flags = rx_msg->flags,
-        distance_measurements[distance_measurements_index] = new_measurement;
-        distance_measurements_index++;
+        durin.telemetry.distance_data[durin.telemetry.distance_index] = new_measurement;
+        durin.telemetry.distance_index++;
     } else 
     if (header->msg_type == UWB_MSG_IS_ALIVE) {
         struct uwb_is_alive *rx_msg = (struct uwb_is_alive*) rx_buf;
@@ -422,7 +508,8 @@ static void uwb_parse_message() {
             rx_msg->purpose == UWB_PURPOSE_BEACON_REPEATER ||
             rx_msg->purpose == UWB_PURPOSE_BEACON_X ||
             rx_msg->purpose == UWB_PURPOSE_BEACON_Y ||
-            rx_msg->purpose == UWB_PURPOSE_BEACON_Z
+            rx_msg->purpose == UWB_PURPOSE_BEACON_Z ||
+            rx_msg->purpose == UWB_PURPOSE_BEACON_ORIGIN
         ) {
             uint8_t exists = 0;
             for (uint8_t i = 0; i < all_beacon_ids_index; i++) {

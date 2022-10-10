@@ -54,7 +54,7 @@ enum uwb_system_status {
     UWB_SYSTEM_STATUS_GOOD = 2,
 };
 
-#pragma pack(1)
+#pragma pack(push, 1)
 struct uwb_header {
     char magic[5]; //{"cskth"}
     uint8_t msg_type;
@@ -63,12 +63,10 @@ struct uwb_header {
     uint8_t seq_num;
 };
 
-#pragma pack(1)
 struct uwb_poll_ranging {
     struct uwb_header header;
 };
 
-#pragma pack(1)
 struct uwb_response_ranging {
     struct uwb_header header;
     uint32_t rx_timestamp;
@@ -80,31 +78,27 @@ struct uwb_response_ranging {
     uint16_t error; // in mm
 };
 
-#pragma pack(1)
 struct uwb_poll_alive {
     struct uwb_header header;
 };
 
-#pragma pack(1)
 struct uwb_is_alive {
     struct uwb_header header;
     uint8_t purpose;
 };
 
-#pragma pack(1)
 struct uwb_give_word {
     struct uwb_header header;
     uint32_t duration;   
 };
 
-#pragma pack(1)
 struct uwb_system_status_msg {
     struct uwb_header header;
     uint8_t status;
 };
 
-#pragma pack(1)
 struct uwb_quiet {
     struct uwb_header header;
     uint16_t duration;
 };
+#pragma pack(pop)

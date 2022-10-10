@@ -6,15 +6,18 @@
 
 #define ITERATIONS 15
 
+// something is borked with volatile structs so here goes global variables. woooo!!!
 //gauss-newton but with for loops instead of matrices (i think)
-void solve_for_position(struct distance_measurement *distances, uint8_t index, struct pos_solver_position* current_pos, uint8_t* fix_type) {
+void solve_for_position(struct distance_measurement distances[], uint8_t index, struct pos_solver_position* current_pos, uint8_t* fix_type) {
     //read metadata
+    printf("distances ------ \n");
     uint8_t num_useful_nodes = 0;
     for (uint8_t i = 0; i < index; i++) {
         uint8_t flags = distances[i].flags;
         if (flags & UWB_HAS_3D_POSITION_BITMASK) {
             num_useful_nodes++;
         }
+        printf("%d \t %d \t %d \t %d \t %d\n", distances[i].id, distances[i].position_x, distances[i].position_y, distances[i].position_z, distances[i].distance);
     }
 
     if (num_useful_nodes >= 4) {
@@ -63,4 +66,4 @@ void solve_for_position(struct distance_measurement *distances, uint8_t index, s
     if (error > 0.2) {
         *fix_type = 0;
     }
-};
+}

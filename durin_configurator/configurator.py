@@ -5,6 +5,8 @@ import socket
 import sys
 import serial
 import capnp
+import random
+import math
 
 capnp.remove_import_hook()
 schema = capnp.load('schema.capnp')
@@ -31,7 +33,12 @@ parser.add_argument('--read-logs', action='store_true')
 
 parser.add_argument('--set-led', nargs=3, type=int)
 
+parser.add_argument('--move', nargs=3, type=int)
+
 parser.add_argument('--dict', type=str)
+
+parser.add_argument('--uart-stream', action="store_true")
+parser.add_argument('--spam', action="store_true")
 
 args = parser.parse_args()
 
@@ -75,9 +82,11 @@ def receive_msg():
         if header == b"\n":
             break
         print("invalid header", header)
-        
+
     header2 = receive_raw(2)
     payload_len = header2[0] + (header2[1] << 8)
+    meta = 0xf000 & payload_len
+    payload_len = 0x0fff & payload_len
     payload = receive_raw(payload_len)
     return schema.DurinBase.from_bytes(payload)
 
@@ -126,6 +135,16 @@ if args.set_led:
     send_msg(msg)
     wait_ack()
 
+if args.move:
+    print("setting the velocity")
+    msg = schema.DurinBase.new_message()
+    msg.init("setRobotVelocity")
+    msg.setRobotVelocity.velocityXMms = args.move[0]
+    msg.setRobotVelocity.velocityYMms = args.move[1]
+    msg.setRobotVelocity.rotationDegs = args.move[2]
+    send_msg(msg)
+    wait_ack()
+
 if args.wifi:
     print("updating wifi")
     msg = schema.DurinBase.new_message()
@@ -141,7 +160,7 @@ if args.id:
     msg = schema.DurinBase.new_message()
     msg.init("setNodeId")
     msg.setNodeId.nodeId = args.id
-    send(msg)
+    send_msg(msg)
     wait_ack()
     
 if args.read_logs:
@@ -163,6 +182,19 @@ if args.read_logs:
             print(base.textLogging.log, end="")
         else:
             print(base)
+
+if args.uart_stream:
+    msg = schema.DurinBase.new_message()
+    msg.init("enableStreaming")
+    msg.enableStreaming.destination.uartOnly = None
+
+    send_msg(msg)
+    wait_ack()
+    print("stream output")
+    while True:
+        log = receive_msg()
+        base = next(log.gen)
+        print(base)
 
 
 success = True
@@ -232,3 +264,25 @@ if success and args.verify:
         print("could not confirm the update and it will be rolled back when durin shuts down")
     else:
         print("updated!")
+
+if args.spam:
+    print("IT'S A PARTY")
+    
+    r = 0
+    g = 0
+    b = 0
+    while True:
+        r += math.floor(random.random() * 3)
+        g += math.floor(random.random() * 3)
+        b += math.floor(random.random() * 3)
+
+        r = r % 64
+        g = g % 64
+        b = b % 64
+        msg = schema.DurinBase.new_message()
+        msg.init("setLed")
+        msg.setLed.ledR = r
+        msg.setLed.ledG = g
+        msg.setLed.ledB = b
+        send_msg(msg)
+        wait_ack()

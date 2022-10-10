@@ -17,6 +17,8 @@
 #define DEFAULT_SSID "NCSpeople"
 #define DEFAULT_PASSWORD "peopleNCS"
 
+#define USER_UART_ENABLED
+
 #define CAPN_PACKED 0
 
 struct distance_measurement {
@@ -104,7 +106,7 @@ void set_buzzer(uint8_t intensity);
 void update_persistent_data();
 void power_off();
 
-extern volatile struct durin durin;
-extern volatile struct durin_persistent durin_persistent;
+extern struct durin durin;
+extern struct durin_persistent durin_persistent;
 
 #endif

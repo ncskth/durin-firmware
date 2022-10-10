@@ -56,18 +56,21 @@ void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, str
 void handle_setWifiConfig(SetWifiConfig_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 void handle_setNodeId(SetNodeId_ptr msg, struct DurinBase *response, struct capn_segment *cs);
 
-uint16_t build_packet(uint8_t *buf_in, uint16_t len_in, uint8_t *buf_out) {
+uint16_t build_packet(uint8_t *buf_in, uint16_t len_in, uint8_t *buf_out, uint8_t is_telemetry) {
     buf_out[0] = '\n';
     buf_out[1] = len_in & 0xff;
     buf_out[2] = (len_in >> 8) &0xff;
+    if (is_telemetry) {
+        buf_out[2] |= 1 << 12;
+    }
     memcpy(buf_out + 3, buf_in, len_in);
     return len_in + 3;
 }
 
 
 void send_response(uint8_t *buf, uint16_t len, enum comm_channel where) {
-    uint8_t packet_buf[2048];
-    uint16_t packet_len = build_packet(buf, len, packet_buf);
+    uint8_t packet_buf[len+100];
+    uint16_t packet_len = build_packet(buf, len, packet_buf, 0);
     if (where == CHANNEL_TCP) {
         send_tcp(packet_buf, packet_len);
     }
@@ -77,8 +80,8 @@ void send_response(uint8_t *buf, uint16_t len, enum comm_channel where) {
 }
 
 void send_telemetry(uint8_t *buf, uint16_t len) {
-    uint8_t packet_buf[2048];
-    uint16_t packet_len = build_packet(buf, len, packet_buf);
+    uint8_t packet_buf[len+100];
+    uint16_t packet_len = build_packet(buf, len, packet_buf, 1);
     if (durin.info.streaming_enabled == false) {
         return;
     }
@@ -104,7 +107,6 @@ void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
             break;
 
         case 1:
-            printf("got len 1\n");
             state->expected_len = byte;
             state->state = 2;   
             break;
@@ -113,11 +115,15 @@ void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
             state->expected_len += byte << 8;
             state->current_len = 0;
             state->state = 3;
+            if (state->expected_len > sizeof(state->payload_buf)) {
+                printf("PROTOCOL PARSE LENGTH ERROR\n");
+                state = 0;
+                break;
+            }
             if (state->expected_len == 0) {
                 decode_message(state->payload_buf, state->current_len, state->channel);
                 state->state = 0;
             }
-            printf("got len 2 %d\n", state->expected_len);
             break;
 
         case 3:
@@ -126,7 +132,6 @@ void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
             if (state->current_len == state->expected_len) {
                 decode_message(state->payload_buf, state->current_len, state->channel);
                 state->state = 0;
-                printf("decoding message\n");
             }
             break;
     }
@@ -248,6 +253,10 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
     uint16_t response_len = capn_write_mem(&response_c, response_buf, sizeof(response_buf), CAPN_PACKED);
     capn_free(&read_c);
     capn_free(&response_c);
+    if (response_len == -1) {
+        printf("PROTOCOL RESPONSE LENGTH ERROR\n");
+        return;
+    }
     send_response(response_buf, response_len, where);
 }
 
@@ -286,6 +295,7 @@ void handle_enableStreaming(EnableStreaming_ptr msg, struct DurinBase *response,
 
 void handle_disableStreaming(DisableStreaming_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     durin.info.streaming_enabled = false;
+    fast_acknowledge(response, cs);
 }
 
 void handle_powerOff(PowerOff_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
@@ -385,30 +395,35 @@ void handle_getTofObservations(GetTofObservations_ptr msg, struct DurinBase *res
 
 void handle_getDistanceMeasurement(GetDistanceMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     
+    fast_acknowledge(response, cs);
 }
 
 void handle_setImuStreamPeriod(SetImuStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct SetImuStreamPeriod data;
     read_SetImuStreamPeriod(&data, msg);
     durin.info.imu_stream_period = data.periodMs;
+    fast_acknowledge(response, cs);
 }
 
 void handle_setPositionStreamPeriod(SetPositionStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct SetPositionStreamPeriod data;
     read_SetPositionStreamPeriod(&data, msg);
     durin.info.position_stream_period = data.periodMs;
+    fast_acknowledge(response, cs);
 }
 
 void handle_setSystemStatusStreamPeriod(SetSystemStatusStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct SetSystemStatusStreamPeriod data;
     read_SetSystemStatusStreamPeriod(&data, msg);
     durin.info.systemstatus_stream_period = data.periodMs;
+    fast_acknowledge(response, cs);
 }
 
 void handle_setTofStreamPeriod(SetTofStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs) {
     struct SetTofStreamPeriod data;
     read_SetTofStreamPeriod(&data, msg);
     durin.info.tof_stream_period = data.periodMs;
+    fast_acknowledge(response, cs);
 }
 
 

@@ -19,6 +19,7 @@
 #include <esp_timer.h>
 #include <esp_task_wdt.h>
 #include <stdio.h>
+#include <esp_ipc.h>
 
 #include "hardware.h"
 #include "nbe_i2c.h"
@@ -44,7 +45,8 @@
 #define MAIN_LOOP_PERIOD 1000 // us
 
 void init_led();
-void durin_writefn(void* cookie, const char* data, int size);
+int durin_writefn(void* cookie, const char* data, int size);
+int IRAM_ATTR void_writefn(void*cookie, const char* data, int size);
 
 extern icm20948_t icm;
 
@@ -111,6 +113,12 @@ void rt_loop(void* arg) {
 
 
 
+void init_i2c(void* arg) {
+    // i2c
+    nbe_i2c_init(&durin.hw.i2c_tof, I2C_NUM_TOF, PIN_TOF_SDA, PIN_TOF_SCL, I2C_TOF_HZ);
+    nbe_i2c_init(&durin.hw.i2c_imu, I2C_NUM_IMU, PIN_IMU_SDA, PIN_IMU_SCL, I2C_IMU_HZ);
+}
+
 //run all drivers on core1
 //run main loop on core0
 void setup(void* arg) {
@@ -123,9 +131,7 @@ void setup(void* arg) {
     // timer
     esp_timer_early_init();
 
-    // i2c
-    nbe_i2c_init(&durin.hw.i2c_tof, I2C_NUM_TOF, PIN_TOF_SDA, PIN_TOF_SCL, I2C_TOF_HZ);
-    nbe_i2c_init(&durin.hw.i2c_imu, I2C_NUM_IMU, PIN_IMU_SDA, PIN_IMU_SCL, I2C_IMU_HZ);
+    esp_ipc_call_blocking(RT_CORE, init_i2c, NULL);
 
     // servo
     init_servo();
@@ -139,7 +145,7 @@ void setup(void* arg) {
     init_imu();
 
     // uwb
-    //init_uwb();
+    // init_uwb();
 
     uint8_t working_tof = 0;
     for (uint8_t i = 0; i < 8; i++) {
@@ -167,17 +173,21 @@ void setup(void* arg) {
 
 void app_main() {
     durin.info.logging_enabled = EnableLogging_disabled;
+    
+    printf("wtf\n");
     init_user_uart();
-    _GLOBAL_REENT->_stdout = fwopen(NULL, &durin_writefn);
-    static char stdout_buf[128];
-    setvbuf(_GLOBAL_REENT->_stdout, stdout_buf, _IOLBF, 128);
+    // _GLOBAL_REENT->_stdout = fwopen(NULL, &void_writefn);
+    // static char stdout_buf[128];
+    // setvbuf(_GLOBAL_REENT->_stdout, stdout_buf, _IOLBF, 128);
 
     durin.info.init_finished = 0;
     esp_event_loop_create_default();
-    xTaskCreatePinnedToCore(rt_loop, "rt_loop", 10000 * 2, NULL, 5, NULL, RT_CORE);
-    xTaskCreatePinnedToCore(setup, "setup", 5000 * 2, NULL, 5, NULL, TRASH_CORE);
+    xTaskCreatePinnedToCore(rt_loop, "rt_loop", 22000 * 2, NULL, 5, NULL, RT_CORE);
+    xTaskCreatePinnedToCore(setup, "setup", 15000 * 2, NULL, 5, NULL, TRASH_CORE);
     return;
 }
+
+
 
 static capn_text chars_to_text(const char *chars) {
     return (capn_text) {
@@ -187,16 +197,20 @@ static capn_text chars_to_text(const char *chars) {
     };
 }
 
-void IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
+int IRAM_ATTR void_writefn(void*cookie, const char* data, int size) {
+    return size;
+}
+
+int IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     static bool in_writefn = 0;
     if (in_writefn) {
-        return; //prevent recursive writes
+        goto end; //prevent recursive writes
     }
     if (durin.info.logging_enabled == EnableLogging_disabled) {
-        return;
+        goto end;
     }
     if (durin.info.ota_in_progress) {
-        return;
+        goto end;
     }
     in_writefn = 1;
     struct capn c;
@@ -206,7 +220,7 @@ void IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     struct TextLogging log;
     char *zero_terminated = malloc(size + 1);
     memcpy(zero_terminated, data, size);
-    zero_terminated[size + 1] = "\0";
+    zero_terminated[size + 1] = '\0';
     log.log = (struct capn_text) {
         .len = size,
         .str = zero_terminated,
@@ -238,4 +252,7 @@ void IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     capn_free(&c);
     free(buf);
     in_writefn = 0;
+
+    end:
+    return size;
 }
