@@ -2,7 +2,7 @@
 
 ![](docs/dvs.png)
 
-![](docs/rockpi.png)
+![](docs/rockpi.jpg)
 
 Durin is a wheeled robot developed at KTH for the neurocomputing science department
 
