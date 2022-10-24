@@ -216,7 +216,8 @@ void update_misc(struct pt *pt) {
         uint64_t pressed_for;
         uint8_t released;
         uint8_t pressed;
-        if (esp_timer_get_time() - durin.info.last_message_received > 2*60*1000*1000 && durin.info.streaming_enabled) {
+        if (esp_timer_get_time() - durin.info.last_message_received > 30*1000*1000 && durin.info.active) {
+            durin.info.active = false;
             durin.info.streaming_enabled = false;
         }
 

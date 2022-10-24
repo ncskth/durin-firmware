@@ -68,15 +68,24 @@ void update_servo(struct pt *pt) {
     static float speed3;
     static float speed4;
     while(1) {
-        if (!durin.info.motor_enabled || esp_timer_get_time() - durin.info.last_message_received > 3*1000*1000) {
-            durin.control.control_type = DurinBase_setWheelVelocity;
-            durin.control.setWheelVelocity.wheelBackLeftMms = 0;
-            durin.control.setWheelVelocity.wheelBackRightMms = 0;
-            durin.control.setWheelVelocity.wheelFrontLeftMms = 0;
-            durin.control.setWheelVelocity.wheelFrontRightMms = 0;
-        }
+        static float lerp_factor;
+        const float lerp_start = 0.5;
+        const float lerp_end = 1.5;
+        
+        float current_time = (esp_timer_get_time() - durin.info.last_message_received) / 1000000.0 - lerp_start;
+        float k = 1.0 / (lerp_end - lerp_start);
+        lerp_factor = 1.0 - k * current_time;
+        lerp_factor = lerp_factor > 1.0 ? 1.0 : lerp_factor;
+        lerp_factor = lerp_factor < 0.0 ? 0.0 : lerp_factor;
+        // printf("%f %f %f\n", lerp_factor, current_time, k);
 
-        if (durin.control.control_type == DurinBase_setRobotVelocity) {
+        if (lerp_factor == 0.0 || !durin.info.motor_enabled) {
+            durin.control.control_type = DurinBase_setWheelVelocity;
+            speed1 = 0;
+            speed2 = 0;
+            speed3 = 0;
+            speed4 = 0;
+        } else if (durin.control.control_type == DurinBase_setRobotVelocity) {
             float x = durin.control.setRobotVelocity.velocityXMms;
             float y = durin.control.setRobotVelocity.velocityYMms;
             float angle = atan2f(y, x);
@@ -107,32 +116,22 @@ void update_servo(struct pt *pt) {
             speed3 = -speed3;
             speed4 = speed4;
 
-            dx_set_goal_velocity(&dx, SERVO1, speed1, 1);
-            PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO2, speed2, 1);
-            PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO3, speed3, 1);
-            PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO4, speed4, 1);
-            PT_YIELD(pt);
-            dx_action(&dx, DX_ID_BROADCAST);
-
         } else if (durin.control.control_type == DurinBase_setWheelVelocity) {
             speed1 = durin.control.setWheelVelocity.wheelBackLeftMms * MMS_TO_RPM;
             speed2 = durin.control.setWheelVelocity.wheelBackRightMms * MMS_TO_RPM;
             speed3 = durin.control.setWheelVelocity.wheelFrontLeftMms * MMS_TO_RPM;
             speed4 = durin.control.setWheelVelocity.wheelFrontRightMms * MMS_TO_RPM;
-
-            dx_set_goal_velocity(&dx, SERVO1, speed1, 1);
-            PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO2, speed2, 1);
-            PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO3, speed3, 1);
-            PT_YIELD(pt);
-            dx_set_goal_velocity(&dx, SERVO4, speed4, 1);
-            PT_YIELD(pt);
-            dx_action(&dx, DX_ID_BROADCAST);
         }
+
+        dx_set_goal_velocity(&dx, SERVO1, speed1 * lerp_factor, 1);
+        PT_YIELD(pt);
+        dx_set_goal_velocity(&dx, SERVO2, speed2 * lerp_factor, 1);
+        PT_YIELD(pt);
+        dx_set_goal_velocity(&dx, SERVO3, speed3 * lerp_factor, 1);
+        PT_YIELD(pt);
+        dx_set_goal_velocity(&dx, SERVO4, speed4 * lerp_factor, 1);
+        PT_YIELD(pt);
+        dx_action(&dx, DX_ID_BROADCAST);
         PT_YIELD(pt);
     }
     PT_END(pt);

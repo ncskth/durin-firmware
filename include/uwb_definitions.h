@@ -44,7 +44,7 @@ enum uwb_purposes {
     UWB_PURPOSE_BEACON_Y = 2,
     UWB_PURPOSE_BEACON_Z = 3,
     UWB_PURPOSE_BEACON_REPEATER = 4,
-    UWB_PURPOSE_BEACON_DYNAMIC = 5,
+    UWB_PURPOSE_BEACON_PASSIVE = 5,
     UWB_PURPOSE_USER = 6,
 };
 
@@ -60,7 +60,7 @@ struct uwb_header {
     uint8_t msg_type;
     uint8_t sender;
     uint8_t receiver;
-    uint8_t seq_num;
+    uint8_t purpose;
 };
 
 struct uwb_poll_ranging {
@@ -84,7 +84,6 @@ struct uwb_poll_alive {
 
 struct uwb_is_alive {
     struct uwb_header header;
-    uint8_t purpose;
 };
 
 struct uwb_give_word {

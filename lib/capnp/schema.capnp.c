@@ -12,6 +12,9 @@ static const capn_text capn_val0 = {0,"",0};
 uint16_t streamPeriodMax = 65535;
 uint16_t streamPeriodMin = 0;
 uint16_t durinTcpPort = 1337;
+uint32_t durinBaud = 2000000u;
+uint16_t lengthMask = 4095;
+uint16_t metaMask = 61440;
 
 DurinBase_ptr new_DurinBase(struct capn_segment *s) {
 	DurinBase_ptr p;
@@ -30,6 +33,7 @@ void read_DurinBase(struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	switch (s->which) {
 	case DurinBase_reject:
 	case DurinBase_acknowledge:
+	case DurinBase_ping:
 	case DurinBase_powerOff:
 	case DurinBase_setRobotVelocity:
 	case DurinBase_setWheelVelocity:
@@ -47,11 +51,12 @@ void read_DurinBase(struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	case DurinBase_setSystemStatusStreamPeriod:
 	case DurinBase_getSystemStatus:
 	case DurinBase_systemStatus:
-	case DurinBase_getDistanceMeasurement:
-	case DurinBase_distanceMeasurement:
 	case DurinBase_setPositionStreamPeriod:
 	case DurinBase_getPosition:
 	case DurinBase_position:
+	case DurinBase_setUwbStreamPeriod:
+	case DurinBase_getUwbNodes:
+	case DurinBase_uwbNodes:
 	case DurinBase_setWifiConfig:
 	case DurinBase_setNodeId:
 	case DurinBase_textLogging:
@@ -72,6 +77,7 @@ void write_DurinBase(const struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	switch (s->which) {
 	case DurinBase_reject:
 	case DurinBase_acknowledge:
+	case DurinBase_ping:
 	case DurinBase_powerOff:
 	case DurinBase_setRobotVelocity:
 	case DurinBase_setWheelVelocity:
@@ -89,11 +95,12 @@ void write_DurinBase(const struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	case DurinBase_setSystemStatusStreamPeriod:
 	case DurinBase_getSystemStatus:
 	case DurinBase_systemStatus:
-	case DurinBase_getDistanceMeasurement:
-	case DurinBase_distanceMeasurement:
 	case DurinBase_setPositionStreamPeriod:
 	case DurinBase_getPosition:
 	case DurinBase_position:
+	case DurinBase_setUwbStreamPeriod:
+	case DurinBase_getUwbNodes:
+	case DurinBase_uwbNodes:
 	case DurinBase_setWifiConfig:
 	case DurinBase_setNodeId:
 	case DurinBase_textLogging:
@@ -502,7 +509,7 @@ SetTofResolution_list new_SetTofResolution_list(struct capn_segment *s, int len)
 void read_SetTofResolution(struct SetTofResolution *s capnp_unused, SetTofResolution_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	s->resolution = (enum SetTofResolution_TofResolutions)(int) capn_read16(p.p, 0);
+	s->resolution = (enum TofResolutions)(int) capn_read16(p.p, 0);
 }
 void write_SetTofResolution(const struct SetTofResolution *s capnp_unused, SetTofResolution_ptr p) {
 	capn_resolve(&p.p);
@@ -928,6 +935,154 @@ void set_GetPosition(const struct GetPosition *s, GetPosition_list l, int i) {
 	write_GetPosition(s, p);
 }
 
+UwbNode_ptr new_UwbNode(struct capn_segment *s) {
+	UwbNode_ptr p;
+	p.p = capn_new_struct(s, 32, 0);
+	return p;
+}
+UwbNode_list new_UwbNode_list(struct capn_segment *s, int len) {
+	UwbNode_list p;
+	p.p = capn_new_list(s, len, 32, 0);
+	return p;
+}
+void read_UwbNode(struct UwbNode *s capnp_unused, UwbNode_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	s->nodeId = capn_read8(p.p, 0);
+	s->purpose = (enum UwbNodePurpose)(int) capn_read16(p.p, 2);
+	s->distanceMm = capn_read32(p.p, 4);
+	s->flags = capn_read32(p.p, 8);
+	s->position_which = (enum UwbNode_position_which)(int) capn_read16(p.p, 12);
+	switch (s->position_which) {
+	case UwbNode_position_vectorMm:
+		s->position.vectorMm.x = (int32_t) ((int32_t)capn_read32(p.p, 16));
+		s->position.vectorMm.y = (int32_t) ((int32_t)capn_read32(p.p, 20));
+		s->position.vectorMm.z = (int32_t) ((int32_t)capn_read32(p.p, 24));
+		break;
+	default:
+		break;
+	}
+}
+void write_UwbNode(const struct UwbNode *s capnp_unused, UwbNode_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	capn_write8(p.p, 0, s->nodeId);
+	capn_write16(p.p, 2, (uint16_t) (s->purpose));
+	capn_write32(p.p, 4, s->distanceMm);
+	capn_write32(p.p, 8, s->flags);
+	capn_write16(p.p, 12, s->position_which);
+	switch (s->position_which) {
+	case UwbNode_position_vectorMm:
+		capn_write32(p.p, 16, (uint32_t) (s->position.vectorMm.x));
+		capn_write32(p.p, 20, (uint32_t) (s->position.vectorMm.y));
+		capn_write32(p.p, 24, (uint32_t) (s->position.vectorMm.z));
+		break;
+	default:
+		break;
+	}
+}
+void get_UwbNode(struct UwbNode *s, UwbNode_list l, int i) {
+	UwbNode_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_UwbNode(s, p);
+}
+void set_UwbNode(const struct UwbNode *s, UwbNode_list l, int i) {
+	UwbNode_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_UwbNode(s, p);
+}
+
+GetUwbNodes_ptr new_GetUwbNodes(struct capn_segment *s) {
+	GetUwbNodes_ptr p;
+	p.p = capn_new_struct(s, 0, 0);
+	return p;
+}
+GetUwbNodes_list new_GetUwbNodes_list(struct capn_segment *s, int len) {
+	GetUwbNodes_list p;
+	p.p = capn_new_list(s, len, 0, 0);
+	return p;
+}
+void read_GetUwbNodes(struct GetUwbNodes *s capnp_unused, GetUwbNodes_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+}
+void write_GetUwbNodes(const struct GetUwbNodes *s capnp_unused, GetUwbNodes_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+}
+void get_GetUwbNodes(struct GetUwbNodes *s, GetUwbNodes_list l, int i) {
+	GetUwbNodes_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_GetUwbNodes(s, p);
+}
+void set_GetUwbNodes(const struct GetUwbNodes *s, GetUwbNodes_list l, int i) {
+	GetUwbNodes_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_GetUwbNodes(s, p);
+}
+
+SetUwbStreamPeriod_ptr new_SetUwbStreamPeriod(struct capn_segment *s) {
+	SetUwbStreamPeriod_ptr p;
+	p.p = capn_new_struct(s, 8, 0);
+	return p;
+}
+SetUwbStreamPeriod_list new_SetUwbStreamPeriod_list(struct capn_segment *s, int len) {
+	SetUwbStreamPeriod_list p;
+	p.p = capn_new_list(s, len, 8, 0);
+	return p;
+}
+void read_SetUwbStreamPeriod(struct SetUwbStreamPeriod *s capnp_unused, SetUwbStreamPeriod_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	s->periodMs = capn_read16(p.p, 0);
+}
+void write_SetUwbStreamPeriod(const struct SetUwbStreamPeriod *s capnp_unused, SetUwbStreamPeriod_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	capn_write16(p.p, 0, s->periodMs);
+}
+void get_SetUwbStreamPeriod(struct SetUwbStreamPeriod *s, SetUwbStreamPeriod_list l, int i) {
+	SetUwbStreamPeriod_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_SetUwbStreamPeriod(s, p);
+}
+void set_SetUwbStreamPeriod(const struct SetUwbStreamPeriod *s, SetUwbStreamPeriod_list l, int i) {
+	SetUwbStreamPeriod_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_SetUwbStreamPeriod(s, p);
+}
+
+UwbNodes_ptr new_UwbNodes(struct capn_segment *s) {
+	UwbNodes_ptr p;
+	p.p = capn_new_struct(s, 0, 1);
+	return p;
+}
+UwbNodes_list new_UwbNodes_list(struct capn_segment *s, int len) {
+	UwbNodes_list p;
+	p.p = capn_new_list(s, len, 0, 1);
+	return p;
+}
+void read_UwbNodes(struct UwbNodes *s capnp_unused, UwbNodes_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	s->nodes.p = capn_getp(p.p, 0, 0);
+}
+void write_UwbNodes(const struct UwbNodes *s capnp_unused, UwbNodes_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	capn_setp(p.p, 0, s->nodes.p);
+}
+void get_UwbNodes(struct UwbNodes *s, UwbNodes_list l, int i) {
+	UwbNodes_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_UwbNodes(s, p);
+}
+void set_UwbNodes(const struct UwbNodes *s, UwbNodes_list l, int i) {
+	UwbNodes_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_UwbNodes(s, p);
+}
+
 Position_ptr new_Position(struct capn_segment *s) {
 	Position_ptr p;
 	p.p = capn_new_struct(s, 16, 0);
@@ -943,10 +1098,10 @@ void read_Position(struct Position *s capnp_unused, Position_ptr p) {
 	capnp_use(s);
 	s->which = (enum Position_which)(int) capn_read16(p.p, 0);
 	switch (s->which) {
-	case Position_vector:
-		s->vector.x = (int32_t) ((int32_t)capn_read32(p.p, 4));
-		s->vector.y = (int32_t) ((int32_t)capn_read32(p.p, 8));
-		s->vector.z = (int32_t) ((int32_t)capn_read32(p.p, 12));
+	case Position_vectorMm:
+		s->vectorMm.x = (int32_t) ((int32_t)capn_read32(p.p, 4));
+		s->vectorMm.y = (int32_t) ((int32_t)capn_read32(p.p, 8));
+		s->vectorMm.z = (int32_t) ((int32_t)capn_read32(p.p, 12));
 		break;
 	default:
 		break;
@@ -957,10 +1112,10 @@ void write_Position(const struct Position *s capnp_unused, Position_ptr p) {
 	capnp_use(s);
 	capn_write16(p.p, 0, s->which);
 	switch (s->which) {
-	case Position_vector:
-		capn_write32(p.p, 4, (uint32_t) (s->vector.x));
-		capn_write32(p.p, 8, (uint32_t) (s->vector.y));
-		capn_write32(p.p, 12, (uint32_t) (s->vector.z));
+	case Position_vectorMm:
+		capn_write32(p.p, 4, (uint32_t) (s->vectorMm.x));
+		capn_write32(p.p, 8, (uint32_t) (s->vectorMm.y));
+		capn_write32(p.p, 12, (uint32_t) (s->vectorMm.z));
 		break;
 	default:
 		break;
@@ -1198,4 +1353,33 @@ void set_EnableLogging(const struct EnableLogging *s, EnableLogging_list l, int 
 	EnableLogging_ptr p;
 	p.p = capn_getp(l.p, i, 0);
 	write_EnableLogging(s, p);
+}
+
+Ping_ptr new_Ping(struct capn_segment *s) {
+	Ping_ptr p;
+	p.p = capn_new_struct(s, 0, 0);
+	return p;
+}
+Ping_list new_Ping_list(struct capn_segment *s, int len) {
+	Ping_list p;
+	p.p = capn_new_list(s, len, 0, 0);
+	return p;
+}
+void read_Ping(struct Ping *s capnp_unused, Ping_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+}
+void write_Ping(const struct Ping *s capnp_unused, Ping_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+}
+void get_Ping(struct Ping *s, Ping_list l, int i) {
+	Ping_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_Ping(s, p);
+}
+void set_Ping(const struct Ping *s, Ping_list l, int i) {
+	Ping_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_Ping(s, p);
 }

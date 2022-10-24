@@ -19,7 +19,7 @@
 
 #define USER_UART_ENABLED
 
-#define CAPN_PACKED 0
+#define CAPN_PACKED 1
 
 struct distance_measurement {
     uint8_t id;
@@ -27,6 +27,7 @@ struct distance_measurement {
     int32_t position_x; // in mm
     int32_t position_y; // in mm
     int32_t position_z; // in mm
+    uint8_t purpose;
     uint8_t flags;
     uint16_t error; // in mm
 };
@@ -43,8 +44,10 @@ struct durin_telemetry {
     int16_t ax, ay, az, gx, gy, gz, mx, my, mz;
     float pos_x, pos_y, pos_z;
     uint8_t fix_type;
-    struct distance_measurement distance_data[32];
+    struct distance_measurement distance_data[64];
     uint8_t distance_index;
+    struct distance_measurement distance_data_old_chache[64];
+    uint8_t distance_old_cache_index;
 };
 
 struct durin_info {
@@ -64,8 +67,11 @@ struct durin_info {
     uint16_t position_stream_period;
     uint16_t imu_stream_period;
     uint16_t systemstatus_stream_period;
+    uint16_t uwb_stream_period;
     enum EnableLogging_which logging_enabled;
     bool ota_in_progress;
+    enum TofResolutions tof_resolution;
+    bool active;
 };
 
 struct durin_control {
@@ -106,7 +112,7 @@ void set_buzzer(uint8_t intensity);
 void update_persistent_data();
 void power_off();
 
-extern struct durin durin;
-extern struct durin_persistent durin_persistent;
+volatile extern struct durin durin;
+volatile extern struct durin_persistent durin_persistent;
 
 #endif

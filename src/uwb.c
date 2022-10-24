@@ -12,6 +12,7 @@
 #include "uwb_definitions.h"
 #include "position_solver.h"
 #include "durin.h"
+#include "protocol.h"
 
 #define USER_UART
 
@@ -34,7 +35,9 @@ static void uwb_parse_message();
 static void uwb_misc_task();
 static void uwb_reading_task();
 static void uwb_send_task();
+
 static void send_position_telemetry();
+static void send_uwb_nodes_telemetry();
 
 static uint64_t get_tx_timestamp_u64(void);
 static uint64_t get_rx_timestamp_u64(void);
@@ -155,7 +158,6 @@ void uwb_reading_task() {
 
 void uwb_send_task() {
     while (true) {
-        printf("line %d\n", __LINE__);
         xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
         vTaskDelay(GET_BROADCAST_WAIT_MS(durin_persistent.node_id));
         send_message_instantly(uwb_send_task_buf, uwb_send_task_len);
@@ -165,7 +167,8 @@ void uwb_send_task() {
 void uwb_misc_task() {
     uint64_t last_poll_sent_at = 0;
     uint8_t next_poll_index = 0;
-    uint64_t last_telemetry_update = 0;
+    uint64_t last_position_telemetry = 0;
+    uint64_t last_uwb_nodes_telemetry = 0;
 
     // wait for everyone to quiet down
     vTaskDelay(500);
@@ -175,6 +178,7 @@ void uwb_misc_task() {
             .header.msg_type = UWB_MSG_QUIET,
             .header.receiver = UWB_BROADCAST_ID,
             .header.sender = durin_persistent.node_id,
+            .header.purpose = UWB_PURPOSE_USER,
             .duration = BROADCAST_BUSY_FOR_MS + 500,
         };
         send_message_instantly(&poll_msg, sizeof(poll_msg));
@@ -192,6 +196,7 @@ void uwb_misc_task() {
         .header.msg_type = UWB_MSG_POLL_ALIVE,
         .header.receiver = UWB_BROADCAST_ID,
         .header.sender = durin_persistent.node_id,
+        .header.purpose = UWB_PURPOSE_USER,
     };
     send_message_instantly(&poll_msg, sizeof(poll_msg));
 
@@ -200,13 +205,16 @@ void uwb_misc_task() {
         .header.msg_type = UWB_MSG_IS_ALIVE,
         .header.sender = durin_persistent.node_id,
         .header.receiver = UWB_BROADCAST_ID,
-        .purpose = UWB_PURPOSE_USER,
+        .header.purpose = UWB_PURPOSE_USER,
     };
     send_message_global(&self_response_msg, sizeof(self_response_msg));
     vTaskDelay(BROADCAST_BUSY_FOR_MS);
 
-
     while (true) {
+        if (!durin.info.active) {
+            vTaskDelay(100);
+            continue;
+        }
         uint64_t current_time = esp_timer_get_time();
         if (
             current_time - last_poll_sent_at > user_ids_index * SINGLE_BUSY_FOR_MS * 1000 &&
@@ -220,10 +228,10 @@ void uwb_misc_task() {
                 .header.msg_type = UWB_MSG_POLL_RANGING,
                 .header.receiver = all_beacon_ids[next_poll_index],
                 .header.sender = durin_persistent.node_id,
+                .header.purpose = UWB_PURPOSE_USER,
             };
             send_message_instantly(&msg, sizeof(msg));
             last_poll_sent_at = esp_timer_get_time();
-            printf("polled %d\n", all_beacon_ids[next_poll_index]);
             vTaskDelay(1);
 
             next_poll_index = (next_poll_index + 1) % all_beacon_ids_index;
@@ -234,15 +242,20 @@ void uwb_misc_task() {
                     durin.telemetry.pos_z
                 };  
 
-
+                memcpy(durin.telemetry.distance_data_old_chache, durin.telemetry.distance_data, sizeof(durin.telemetry.distance_data)); //store an old cache for polling
+                durin.telemetry.distance_old_cache_index = durin.telemetry.distance_index;
                 solve_for_position(durin.telemetry.distance_data, durin.telemetry.distance_index, &pos, &durin.telemetry.fix_type);
                 durin.telemetry.distance_index = 0;
                 durin.telemetry.pos_x = pos.x;
                 durin.telemetry.pos_y = pos.y;
                 durin.telemetry.pos_z = pos.z;
-                if (current_time - last_telemetry_update > durin.info.position_stream_period * 1000) {
+                if (current_time - last_position_telemetry > durin.info.position_stream_period * 1000) {
                     send_position_telemetry();
-                    last_telemetry_update = current_time;
+                    last_position_telemetry = current_time;
+                }
+                if (current_time - last_uwb_nodes_telemetry > durin.info.position_stream_period * 1000) {
+                    send_uwb_nodes_telemetry();
+                    last_uwb_nodes_telemetry = current_time;
                 }
             }
         } else {
@@ -251,108 +264,104 @@ void uwb_misc_task() {
             durin.telemetry.pos_y = 0;
             durin.telemetry.pos_z = 0;
             durin.telemetry.fix_type = 0;
-            if (current_time - last_telemetry_update > (1000 +durin.info.position_stream_period) * 1000) {
+            if (current_time - last_position_telemetry > (1000 + durin.info.position_stream_period) * 1000) {
                 send_position_telemetry();
-                last_telemetry_update = current_time;
+                last_position_telemetry = current_time;
+            }
+            if (current_time - last_uwb_nodes_telemetry > (1000 + durin.info.position_stream_period) * 1000) {
+                send_uwb_nodes_telemetry();
+                last_uwb_nodes_telemetry = current_time;
             }
         }
     }
     
 }
 
-void send_position_telemetry() {
-    struct capn c;
-    capn_init_malloc(&c);
-    struct capn_segment *cs = capn_root(&c).seg;
-    struct DurinBase msg;
-    uint8_t buf[512];
-    uint16_t len;
-    struct Position position;
+void build_uwb_nodes_message(UwbNodes_ptr *ptr, struct capn_segment *cs) {
+    struct UwbNodes msg;
+    msg.nodes = new_UwbNode_list(cs, durin.telemetry.distance_old_cache_index);
 
+    for (uint8_t i = 0; i < durin.telemetry.distance_old_cache_index; i++) {
+        struct distance_measurement node = durin.telemetry.distance_data_old_chache[i];
+        struct UwbNode capn_node;
+        capn_node.nodeId = node.id;
+        capn_node.distanceMm = node.distance;
+        switch (node.purpose) {
+            case UWB_PURPOSE_BEACON_ORIGIN:
+                capn_node.purpose = UwbNodePurpose_origin;
+                break;
+            case UWB_PURPOSE_BEACON_X:
+                capn_node.purpose = UwbNodePurpose_x;
+                break;
+            case UWB_PURPOSE_BEACON_Y:
+                capn_node.purpose = UwbNodePurpose_y;
+                break;
+            case UWB_PURPOSE_BEACON_Z:
+                capn_node.purpose = UwbNodePurpose_z;
+                break;
+            case UWB_PURPOSE_BEACON_REPEATER:
+                capn_node.purpose = UwbNodePurpose_repeater;
+                break;
+            case UWB_PURPOSE_BEACON_PASSIVE:
+                capn_node.purpose = UwbNodePurpose_passive;
+                break;
+            case UWB_PURPOSE_USER:
+                capn_node.purpose = UwbNodePurpose_user;
+                break;
+        }
+        if (node.flags & UWB_HAS_3D_POSITION_BITMASK) {
+            capn_node.position_which = UwbNode_position_vectorMm;
+            capn_node.position.vectorMm.x = node.position_x;
+            capn_node.position.vectorMm.y = node.position_y;
+            capn_node.position.vectorMm.z = node.position_z;
+        } else {
+            capn_node.position_which = UwbNode_position_unknown;
+        }
+        set_UwbNode(&capn_node, msg.nodes, i);
+    }
+    *ptr = new_UwbNodes(cs);
+    write_UwbNodes(&msg, *ptr);
+}
+
+static void send_position_telemetry() {
+    struct capn c;
+    struct capn_segment *cs;
+    struct DurinBase msg;
+    init_durinbase(&c, &cs, &msg);
+
+    struct Position position;    
     if (durin.telemetry.fix_type == 3) {
-        position.which = Position_vector;
-        position.vector.x = durin.telemetry.pos_x * 1000;
-        position.vector.y = durin.telemetry.pos_y * 1000;
-        position.vector.z = durin.telemetry.pos_z * 1000;
+        position.which = Position_vectorMm;
+        position.vectorMm.x = durin.telemetry.pos_x * 1000;
+        position.vectorMm.y = durin.telemetry.pos_y * 1000;
+        position.vectorMm.z = durin.telemetry.pos_z * 1000;
     } else {
         position.which = Position_unknown;
     }
-
     msg.position = new_Position(cs);
     write_Position(&position, msg.position);
     msg.which = DurinBase_position;
 
-    DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
-    write_DurinBase(&msg, durin_response_ptr);
-    capn_setp(capn_root(&c), 0, durin_response_ptr.p);          
-    
-    len = capn_write_mem(&c, buf, sizeof(buf), CAPN_PACKED);
+    uint8_t buf[128];
+    uint16_t len = sizeof(buf);
+    finish_durinbase(&c, cs, &msg, buf, &len);
     send_telemetry(buf, len);
-    capn_free(&c);
+}
 
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // uint8_t end = 4;
-    // uint8_t start = 1;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // struct capn c;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // capn_init_malloc(&c);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // struct capn_segment *cs = capn_root(&c).seg;    
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // struct DurinBase msg;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // uint8_t buf[1500];
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // uint16_t len;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // struct TofObservations tof_observations;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // tof_observations.observations = new_TofObservations_TofObservation_list(cs, end-start);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // for (uint8_t i = start; i < end; i++) {
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     uint8_t id = i;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     struct TofObservations_TofObservation observation;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     observation.id = id;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     uint8_t pixels = 64;
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     observation.ranges = capn_new_list16(cs, pixels);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    //     set_TofObservations_TofObservation(&observation, tof_observations.observations, i - start);        
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // }
-    // printf("%s %d\n", __FILE__, __LINE__);
+static void send_uwb_nodes_telemetry() {
+    struct capn c;
+    struct capn_segment *cs;
+    struct DurinBase msg;
+    init_durinbase(&c, &cs, &msg);
 
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // msg.tofObservations = new_TofObservations(cs);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // write_TofObservations(&tof_observations, msg.tofObservations);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // msg.which = DurinBase_tofObservations;
-    // printf("%s %d\n", __FILE__, __LINE__);
+    struct UwbNodes uwb_nodes;
+    build_uwb_nodes_message(&msg.uwbNodes, cs);
+    msg.which = DurinBase_uwbNodes;
+    uint8_t buf[1024];
+    uint16_t len = sizeof(buf);
+    finish_durinbase(&c, &cs, &msg, buf, &len);
 
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // write_DurinBase(&msg, durin_response_ptr);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // capn_setp(capn_root(&c), 0, durin_response_ptr.p);          
-    // printf("%s %d\n", __FILE__, __LINE__);
-    
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // len = capn_write_mem(&c, buf, sizeof(buf), CAPN_PACKED);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // send_telemetry(buf, len);
-    // printf("%s %d\n", __FILE__, __LINE__);
-    // capn_free(&c);
-    // printf("%s %d\n", __FILE__, __LINE__);
-
+    send_telemetry(buf, len);
 }
 
 static uint64_t get_tx_timestamp_u64(void) {
@@ -441,6 +450,44 @@ static void uwb_parse_message() {
     if (header->receiver != durin_persistent.node_id && header->receiver != UWB_BROADCAST_ID) {
         return;
     }
+
+    //Update active nodes
+    if (header->purpose == UWB_PURPOSE_USER) {
+        uint8_t exists = 0;
+        for (uint8_t i = 0; i < user_ids_index; i++) {
+            if (user_ids[i] == header->sender) {
+                exists = 1;
+                break;
+            }
+        }
+        if (exists == 0) {
+            user_ids[user_ids_index] = header->sender;
+            user_ids_index++;
+            printf("registered uwb node %d as user\n", header->sender);
+        }
+    }
+    
+    if (
+        header->purpose == UWB_PURPOSE_BEACON_REPEATER ||
+        header->purpose == UWB_PURPOSE_BEACON_X ||
+        header->purpose == UWB_PURPOSE_BEACON_Y ||
+        header->purpose == UWB_PURPOSE_BEACON_Z ||
+        header->purpose == UWB_PURPOSE_BEACON_ORIGIN ||
+        header->purpose == UWB_PURPOSE_BEACON_PASSIVE
+    ) {
+        uint8_t exists = 0;
+        for (uint8_t i = 0; i < all_beacon_ids_index; i++) {
+            if (all_beacon_ids[i] == header->sender) {
+                exists = 1;
+                break;
+            }
+        }
+        if (exists == 0) {
+            all_beacon_ids[all_beacon_ids_index] = header->sender;
+            all_beacon_ids_index++;
+            printf("registered uwb node %d as beacon %d\n", header->sender, header->purpose);
+        }
+    }
     if (header->msg_type == UWB_MSG_POLL_RANGING) {
         last_poll_received_at = esp_timer_get_time();
         uint64_t poll_rx_ts = get_rx_timestamp_u64();
@@ -451,6 +498,7 @@ static void uwb_parse_message() {
             .header.msg_type = UWB_MSG_RESPONSE_RANGING,
             .header.sender = durin_persistent.node_id,
             .header.receiver = header->sender,
+            .header.purpose = UWB_PURPOSE_USER,
             .rx_timestamp = poll_rx_ts,
             .tx_timestamp = resp_tx_ts
         };
@@ -484,45 +532,13 @@ static void uwb_parse_message() {
         new_measurement.position_x = rx_msg->position_x;
         new_measurement.position_y = rx_msg->position_y;
         new_measurement.position_z = rx_msg->position_z;
+        new_measurement.purpose = rx_msg->header.purpose;
         new_measurement.flags = rx_msg->flags,
         durin.telemetry.distance_data[durin.telemetry.distance_index] = new_measurement;
         durin.telemetry.distance_index++;
     } else 
     if (header->msg_type == UWB_MSG_IS_ALIVE) {
-        struct uwb_is_alive *rx_msg = (struct uwb_is_alive*) rx_buf;
-        if (rx_msg->purpose == UWB_PURPOSE_USER) {
-            uint8_t exists = 0;
-            for (uint8_t i = 0; i < user_ids_index; i++) {
-                if (user_ids[i] == rx_msg->header.sender) {
-                    exists = 1;
-                    break;
-                }
-            }
-            if (exists == 0) {
-                user_ids[user_ids_index] = rx_msg->header.sender;
-                user_ids_index++;
-            }
-        }
-        
-        if (
-            rx_msg->purpose == UWB_PURPOSE_BEACON_REPEATER ||
-            rx_msg->purpose == UWB_PURPOSE_BEACON_X ||
-            rx_msg->purpose == UWB_PURPOSE_BEACON_Y ||
-            rx_msg->purpose == UWB_PURPOSE_BEACON_Z ||
-            rx_msg->purpose == UWB_PURPOSE_BEACON_ORIGIN
-        ) {
-            uint8_t exists = 0;
-            for (uint8_t i = 0; i < all_beacon_ids_index; i++) {
-                if (all_beacon_ids[i] == rx_msg->header.sender) {
-                    exists = 1;
-                    break;
-                }
-            }
-            if (exists == 0) {
-                all_beacon_ids[all_beacon_ids_index] = rx_msg->header.sender;
-                all_beacon_ids_index++;
-            }
-        }
+
     } else
     if (header->msg_type == UWB_MSG_POLL_ALIVE) {
         struct uwb_is_alive tx_msg = {
@@ -530,7 +546,7 @@ static void uwb_parse_message() {
             .header.msg_type = UWB_MSG_IS_ALIVE,
             .header.sender = durin_persistent.node_id,
             .header.receiver = UWB_BROADCAST_ID,
-            .purpose = UWB_PURPOSE_USER,
+            .header.purpose = UWB_PURPOSE_USER,
         };
         send_message_global(&tx_msg, sizeof(tx_msg));
     }

@@ -45,6 +45,10 @@ struct GetDistanceMeasurement;
 struct DistanceMeasurement;
 struct SetPositionStreamPeriod;
 struct GetPosition;
+struct UwbNode;
+struct GetUwbNodes;
+struct SetUwbStreamPeriod;
+struct UwbNodes;
 struct Position;
 struct SetWifiConfig;
 struct SetNodeId;
@@ -53,6 +57,7 @@ struct OtaUpdateBegin;
 struct OtaUpdateCommit;
 struct OtaUpdate;
 struct EnableLogging;
+struct Ping;
 
 typedef struct {capn_ptr p;} DurinBase_ptr;
 typedef struct {capn_ptr p;} Reject_ptr;
@@ -79,6 +84,10 @@ typedef struct {capn_ptr p;} GetDistanceMeasurement_ptr;
 typedef struct {capn_ptr p;} DistanceMeasurement_ptr;
 typedef struct {capn_ptr p;} SetPositionStreamPeriod_ptr;
 typedef struct {capn_ptr p;} GetPosition_ptr;
+typedef struct {capn_ptr p;} UwbNode_ptr;
+typedef struct {capn_ptr p;} GetUwbNodes_ptr;
+typedef struct {capn_ptr p;} SetUwbStreamPeriod_ptr;
+typedef struct {capn_ptr p;} UwbNodes_ptr;
 typedef struct {capn_ptr p;} Position_ptr;
 typedef struct {capn_ptr p;} SetWifiConfig_ptr;
 typedef struct {capn_ptr p;} SetNodeId_ptr;
@@ -87,6 +96,7 @@ typedef struct {capn_ptr p;} OtaUpdateBegin_ptr;
 typedef struct {capn_ptr p;} OtaUpdateCommit_ptr;
 typedef struct {capn_ptr p;} OtaUpdate_ptr;
 typedef struct {capn_ptr p;} EnableLogging_ptr;
+typedef struct {capn_ptr p;} Ping_ptr;
 
 typedef struct {capn_ptr p;} DurinBase_list;
 typedef struct {capn_ptr p;} Reject_list;
@@ -113,6 +123,10 @@ typedef struct {capn_ptr p;} GetDistanceMeasurement_list;
 typedef struct {capn_ptr p;} DistanceMeasurement_list;
 typedef struct {capn_ptr p;} SetPositionStreamPeriod_list;
 typedef struct {capn_ptr p;} GetPosition_list;
+typedef struct {capn_ptr p;} UwbNode_list;
+typedef struct {capn_ptr p;} GetUwbNodes_list;
+typedef struct {capn_ptr p;} SetUwbStreamPeriod_list;
+typedef struct {capn_ptr p;} UwbNodes_list;
 typedef struct {capn_ptr p;} Position_list;
 typedef struct {capn_ptr p;} SetWifiConfig_list;
 typedef struct {capn_ptr p;} SetNodeId_list;
@@ -121,17 +135,32 @@ typedef struct {capn_ptr p;} OtaUpdateBegin_list;
 typedef struct {capn_ptr p;} OtaUpdateCommit_list;
 typedef struct {capn_ptr p;} OtaUpdate_list;
 typedef struct {capn_ptr p;} EnableLogging_list;
+typedef struct {capn_ptr p;} Ping_list;
 
-enum SetTofResolution_TofResolutions {
-	SetTofResolution_TofResolutions_resolution4x4rate30Hz = 0,
-	SetTofResolution_TofResolutions_resolution8x8rate15Hz = 1
+enum TofResolutions {
+	TofResolutions_resolution4x4rate60Hz = 0,
+	TofResolutions_resolution8x8rate15Hz = 1
+};
+
+enum UwbNodePurpose {
+	UwbNodePurpose_origin = 0,
+	UwbNodePurpose_x = 1,
+	UwbNodePurpose_y = 2,
+	UwbNodePurpose_z = 3,
+	UwbNodePurpose_repeater = 4,
+	UwbNodePurpose_passive = 5,
+	UwbNodePurpose_user = 6
 };
 extern uint16_t streamPeriodMax;
 extern uint16_t streamPeriodMin;
 extern uint16_t durinTcpPort;
+extern uint32_t durinBaud;
+extern uint16_t lengthMask;
+extern uint16_t metaMask;
 enum DurinBase_which {
 	DurinBase_reject = 0,
 	DurinBase_acknowledge = 1,
+	DurinBase_ping = 31,
 	DurinBase_powerOff = 2,
 	DurinBase_setRobotVelocity = 3,
 	DurinBase_setWheelVelocity = 4,
@@ -149,11 +178,12 @@ enum DurinBase_which {
 	DurinBase_setSystemStatusStreamPeriod = 16,
 	DurinBase_getSystemStatus = 17,
 	DurinBase_systemStatus = 18,
-	DurinBase_getDistanceMeasurement = 19,
-	DurinBase_distanceMeasurement = 20,
 	DurinBase_setPositionStreamPeriod = 21,
 	DurinBase_getPosition = 22,
 	DurinBase_position = 23,
+	DurinBase_setUwbStreamPeriod = 32,
+	DurinBase_getUwbNodes = 19,
+	DurinBase_uwbNodes = 20,
 	DurinBase_setWifiConfig = 24,
 	DurinBase_setNodeId = 25,
 	DurinBase_textLogging = 26,
@@ -168,6 +198,7 @@ struct DurinBase {
 	capnp_nowarn union {
 		Reject_ptr reject;
 		Acknowledge_ptr acknowledge;
+		Ping_ptr ping;
 		PowerOff_ptr powerOff;
 		SetRobotVelocity_ptr setRobotVelocity;
 		SetWheelVelocity_ptr setWheelVelocity;
@@ -185,11 +216,12 @@ struct DurinBase {
 		SetSystemStatusStreamPeriod_ptr setSystemStatusStreamPeriod;
 		GetSystemStatus_ptr getSystemStatus;
 		SystemStatus_ptr systemStatus;
-		GetDistanceMeasurement_ptr getDistanceMeasurement;
-		DistanceMeasurement_ptr distanceMeasurement;
 		SetPositionStreamPeriod_ptr setPositionStreamPeriod;
 		GetPosition_ptr getPosition;
 		Position_ptr position;
+		SetUwbStreamPeriod_ptr setUwbStreamPeriod;
+		GetUwbNodes_ptr getUwbNodes;
+		UwbNodes_ptr uwbNodes;
 		SetWifiConfig_ptr setWifiConfig;
 		SetNodeId_ptr setNodeId;
 		TextLogging_ptr textLogging;
@@ -347,7 +379,7 @@ static const size_t GetTofObservations_struct_bytes_count = 8;
 
 
 struct SetTofResolution {
-	enum SetTofResolution_TofResolutions resolution;
+	enum TofResolutions resolution;
 };
 
 static const size_t SetTofResolution_word_count = 1;
@@ -508,9 +540,67 @@ static const size_t GetPosition_pointer_count = 0;
 
 static const size_t GetPosition_struct_bytes_count = 0;
 
+enum UwbNode_position_which {
+	UwbNode_position_unknown = 0,
+	UwbNode_position_vectorMm = 1
+};
+
+struct UwbNode {
+	uint8_t nodeId;
+	enum UwbNodePurpose purpose;
+	uint32_t distanceMm;
+	uint32_t flags;
+	enum UwbNode_position_which position_which;
+	capnp_nowarn union {
+		capnp_nowarn struct {
+			int32_t x;
+			int32_t y;
+			int32_t z;
+		} vectorMm;
+	} position;
+};
+
+static const size_t UwbNode_word_count = 4;
+
+static const size_t UwbNode_pointer_count = 0;
+
+static const size_t UwbNode_struct_bytes_count = 32;
+
+
+capnp_nowarn struct GetUwbNodes {
+};
+
+static const size_t GetUwbNodes_word_count = 0;
+
+static const size_t GetUwbNodes_pointer_count = 0;
+
+static const size_t GetUwbNodes_struct_bytes_count = 0;
+
+
+struct SetUwbStreamPeriod {
+	uint16_t periodMs;
+};
+
+static const size_t SetUwbStreamPeriod_word_count = 1;
+
+static const size_t SetUwbStreamPeriod_pointer_count = 0;
+
+static const size_t SetUwbStreamPeriod_struct_bytes_count = 8;
+
+
+struct UwbNodes {
+	UwbNode_list nodes;
+};
+
+static const size_t UwbNodes_word_count = 0;
+
+static const size_t UwbNodes_pointer_count = 1;
+
+static const size_t UwbNodes_struct_bytes_count = 8;
+
 enum Position_which {
 	Position_unknown = 0,
-	Position_vector = 1
+	Position_vectorMm = 1
 };
 
 struct Position {
@@ -520,7 +610,7 @@ struct Position {
 			int32_t x;
 			int32_t y;
 			int32_t z;
-		} vector;
+		} vectorMm;
 	};
 };
 
@@ -615,6 +705,16 @@ static const size_t EnableLogging_pointer_count = 0;
 static const size_t EnableLogging_struct_bytes_count = 8;
 
 
+capnp_nowarn struct Ping {
+};
+
+static const size_t Ping_word_count = 0;
+
+static const size_t Ping_pointer_count = 0;
+
+static const size_t Ping_struct_bytes_count = 0;
+
+
 DurinBase_ptr new_DurinBase(struct capn_segment*);
 Reject_ptr new_Reject(struct capn_segment*);
 Acknowledge_ptr new_Acknowledge(struct capn_segment*);
@@ -640,6 +740,10 @@ GetDistanceMeasurement_ptr new_GetDistanceMeasurement(struct capn_segment*);
 DistanceMeasurement_ptr new_DistanceMeasurement(struct capn_segment*);
 SetPositionStreamPeriod_ptr new_SetPositionStreamPeriod(struct capn_segment*);
 GetPosition_ptr new_GetPosition(struct capn_segment*);
+UwbNode_ptr new_UwbNode(struct capn_segment*);
+GetUwbNodes_ptr new_GetUwbNodes(struct capn_segment*);
+SetUwbStreamPeriod_ptr new_SetUwbStreamPeriod(struct capn_segment*);
+UwbNodes_ptr new_UwbNodes(struct capn_segment*);
 Position_ptr new_Position(struct capn_segment*);
 SetWifiConfig_ptr new_SetWifiConfig(struct capn_segment*);
 SetNodeId_ptr new_SetNodeId(struct capn_segment*);
@@ -648,6 +752,7 @@ OtaUpdateBegin_ptr new_OtaUpdateBegin(struct capn_segment*);
 OtaUpdateCommit_ptr new_OtaUpdateCommit(struct capn_segment*);
 OtaUpdate_ptr new_OtaUpdate(struct capn_segment*);
 EnableLogging_ptr new_EnableLogging(struct capn_segment*);
+Ping_ptr new_Ping(struct capn_segment*);
 
 DurinBase_list new_DurinBase_list(struct capn_segment*, int len);
 Reject_list new_Reject_list(struct capn_segment*, int len);
@@ -674,6 +779,10 @@ GetDistanceMeasurement_list new_GetDistanceMeasurement_list(struct capn_segment*
 DistanceMeasurement_list new_DistanceMeasurement_list(struct capn_segment*, int len);
 SetPositionStreamPeriod_list new_SetPositionStreamPeriod_list(struct capn_segment*, int len);
 GetPosition_list new_GetPosition_list(struct capn_segment*, int len);
+UwbNode_list new_UwbNode_list(struct capn_segment*, int len);
+GetUwbNodes_list new_GetUwbNodes_list(struct capn_segment*, int len);
+SetUwbStreamPeriod_list new_SetUwbStreamPeriod_list(struct capn_segment*, int len);
+UwbNodes_list new_UwbNodes_list(struct capn_segment*, int len);
 Position_list new_Position_list(struct capn_segment*, int len);
 SetWifiConfig_list new_SetWifiConfig_list(struct capn_segment*, int len);
 SetNodeId_list new_SetNodeId_list(struct capn_segment*, int len);
@@ -682,6 +791,7 @@ OtaUpdateBegin_list new_OtaUpdateBegin_list(struct capn_segment*, int len);
 OtaUpdateCommit_list new_OtaUpdateCommit_list(struct capn_segment*, int len);
 OtaUpdate_list new_OtaUpdate_list(struct capn_segment*, int len);
 EnableLogging_list new_EnableLogging_list(struct capn_segment*, int len);
+Ping_list new_Ping_list(struct capn_segment*, int len);
 
 void read_DurinBase(struct DurinBase*, DurinBase_ptr);
 void read_Reject(struct Reject*, Reject_ptr);
@@ -708,6 +818,10 @@ void read_GetDistanceMeasurement(struct GetDistanceMeasurement*, GetDistanceMeas
 void read_DistanceMeasurement(struct DistanceMeasurement*, DistanceMeasurement_ptr);
 void read_SetPositionStreamPeriod(struct SetPositionStreamPeriod*, SetPositionStreamPeriod_ptr);
 void read_GetPosition(struct GetPosition*, GetPosition_ptr);
+void read_UwbNode(struct UwbNode*, UwbNode_ptr);
+void read_GetUwbNodes(struct GetUwbNodes*, GetUwbNodes_ptr);
+void read_SetUwbStreamPeriod(struct SetUwbStreamPeriod*, SetUwbStreamPeriod_ptr);
+void read_UwbNodes(struct UwbNodes*, UwbNodes_ptr);
 void read_Position(struct Position*, Position_ptr);
 void read_SetWifiConfig(struct SetWifiConfig*, SetWifiConfig_ptr);
 void read_SetNodeId(struct SetNodeId*, SetNodeId_ptr);
@@ -716,6 +830,7 @@ void read_OtaUpdateBegin(struct OtaUpdateBegin*, OtaUpdateBegin_ptr);
 void read_OtaUpdateCommit(struct OtaUpdateCommit*, OtaUpdateCommit_ptr);
 void read_OtaUpdate(struct OtaUpdate*, OtaUpdate_ptr);
 void read_EnableLogging(struct EnableLogging*, EnableLogging_ptr);
+void read_Ping(struct Ping*, Ping_ptr);
 
 void write_DurinBase(const struct DurinBase*, DurinBase_ptr);
 void write_Reject(const struct Reject*, Reject_ptr);
@@ -742,6 +857,10 @@ void write_GetDistanceMeasurement(const struct GetDistanceMeasurement*, GetDista
 void write_DistanceMeasurement(const struct DistanceMeasurement*, DistanceMeasurement_ptr);
 void write_SetPositionStreamPeriod(const struct SetPositionStreamPeriod*, SetPositionStreamPeriod_ptr);
 void write_GetPosition(const struct GetPosition*, GetPosition_ptr);
+void write_UwbNode(const struct UwbNode*, UwbNode_ptr);
+void write_GetUwbNodes(const struct GetUwbNodes*, GetUwbNodes_ptr);
+void write_SetUwbStreamPeriod(const struct SetUwbStreamPeriod*, SetUwbStreamPeriod_ptr);
+void write_UwbNodes(const struct UwbNodes*, UwbNodes_ptr);
 void write_Position(const struct Position*, Position_ptr);
 void write_SetWifiConfig(const struct SetWifiConfig*, SetWifiConfig_ptr);
 void write_SetNodeId(const struct SetNodeId*, SetNodeId_ptr);
@@ -750,6 +869,7 @@ void write_OtaUpdateBegin(const struct OtaUpdateBegin*, OtaUpdateBegin_ptr);
 void write_OtaUpdateCommit(const struct OtaUpdateCommit*, OtaUpdateCommit_ptr);
 void write_OtaUpdate(const struct OtaUpdate*, OtaUpdate_ptr);
 void write_EnableLogging(const struct EnableLogging*, EnableLogging_ptr);
+void write_Ping(const struct Ping*, Ping_ptr);
 
 void get_DurinBase(struct DurinBase*, DurinBase_list, int i);
 void get_Reject(struct Reject*, Reject_list, int i);
@@ -776,6 +896,10 @@ void get_GetDistanceMeasurement(struct GetDistanceMeasurement*, GetDistanceMeasu
 void get_DistanceMeasurement(struct DistanceMeasurement*, DistanceMeasurement_list, int i);
 void get_SetPositionStreamPeriod(struct SetPositionStreamPeriod*, SetPositionStreamPeriod_list, int i);
 void get_GetPosition(struct GetPosition*, GetPosition_list, int i);
+void get_UwbNode(struct UwbNode*, UwbNode_list, int i);
+void get_GetUwbNodes(struct GetUwbNodes*, GetUwbNodes_list, int i);
+void get_SetUwbStreamPeriod(struct SetUwbStreamPeriod*, SetUwbStreamPeriod_list, int i);
+void get_UwbNodes(struct UwbNodes*, UwbNodes_list, int i);
 void get_Position(struct Position*, Position_list, int i);
 void get_SetWifiConfig(struct SetWifiConfig*, SetWifiConfig_list, int i);
 void get_SetNodeId(struct SetNodeId*, SetNodeId_list, int i);
@@ -784,6 +908,7 @@ void get_OtaUpdateBegin(struct OtaUpdateBegin*, OtaUpdateBegin_list, int i);
 void get_OtaUpdateCommit(struct OtaUpdateCommit*, OtaUpdateCommit_list, int i);
 void get_OtaUpdate(struct OtaUpdate*, OtaUpdate_list, int i);
 void get_EnableLogging(struct EnableLogging*, EnableLogging_list, int i);
+void get_Ping(struct Ping*, Ping_list, int i);
 
 void set_DurinBase(const struct DurinBase*, DurinBase_list, int i);
 void set_Reject(const struct Reject*, Reject_list, int i);
@@ -810,6 +935,10 @@ void set_GetDistanceMeasurement(const struct GetDistanceMeasurement*, GetDistanc
 void set_DistanceMeasurement(const struct DistanceMeasurement*, DistanceMeasurement_list, int i);
 void set_SetPositionStreamPeriod(const struct SetPositionStreamPeriod*, SetPositionStreamPeriod_list, int i);
 void set_GetPosition(const struct GetPosition*, GetPosition_list, int i);
+void set_UwbNode(const struct UwbNode*, UwbNode_list, int i);
+void set_GetUwbNodes(const struct GetUwbNodes*, GetUwbNodes_list, int i);
+void set_SetUwbStreamPeriod(const struct SetUwbStreamPeriod*, SetUwbStreamPeriod_list, int i);
+void set_UwbNodes(const struct UwbNodes*, UwbNodes_list, int i);
 void set_Position(const struct Position*, Position_list, int i);
 void set_SetWifiConfig(const struct SetWifiConfig*, SetWifiConfig_list, int i);
 void set_SetNodeId(const struct SetNodeId*, SetNodeId_list, int i);
@@ -818,6 +947,7 @@ void set_OtaUpdateBegin(const struct OtaUpdateBegin*, OtaUpdateBegin_list, int i
 void set_OtaUpdateCommit(const struct OtaUpdateCommit*, OtaUpdateCommit_list, int i);
 void set_OtaUpdate(const struct OtaUpdate*, OtaUpdate_list, int i);
 void set_EnableLogging(const struct EnableLogging*, EnableLogging_list, int i);
+void set_Ping(const struct Ping*, Ping_list, int i);
 
 #ifdef __cplusplus
 }

@@ -7,13 +7,19 @@ import serial
 import capnp
 import random
 import math
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+import pygame
+from threading import Thread
+
+HEADER_BYTE = ord('*')
 
 capnp.remove_import_hook()
 schema = capnp.load('schema.capnp')
 
 parser = argparse.ArgumentParser(description='durin configurator')
 
-parser.add_argument('type', choices=['uart', 'wifi'])
+parser.add_argument('type', choices=['uart', 'wifi', 'test'])
 
 parser.add_argument('address', type=str, help = "[serial path]/[ip_address:port]")
 
@@ -37,19 +43,24 @@ parser.add_argument('--move', nargs=3, type=int)
 
 parser.add_argument('--dict', type=str)
 
-parser.add_argument('--uart-stream', action="store_true")
+parser.add_argument('--stream', action="store_true")
 parser.add_argument('--spam', action="store_true")
+parser.add_argument('--drive', action="store_true")
+parser.add_argument('--poweroff', action="store_true")
 
 args = parser.parse_args()
 
 def send_msg(msg):
-    payload = msg.to_bytes()
+    payload = msg.to_bytes_packed()
     buf = bytearray()
-    buf += b"\n"
+    buf += bytearray([HEADER_BYTE])
     buf.append(len(payload) & 0xff)
     buf.append((len(payload) >> 8) & 0xff)
     buf += payload
-
+    checksum = 0
+    for v in buf:
+        checksum ^= v
+    buf += bytearray([checksum])
     if args.type == "wifi":
         totalsent = 0
         while totalsent < len(buf):
@@ -72,14 +83,15 @@ def receive_raw(msg_len):
             chunks.append(chunk)
             bytes_recd = bytes_recd + len(chunk)
             buf = b''.join(chunks)
-            return buf
+        return buf
     if args.type == "uart":
-        return ser.read(msg_len)
+        buf = ser.read(msg_len)
+        return buf
 
 def receive_msg():
     while True:
         header = receive_raw(1)
-        if header == b"\n":
+        if header == b"*":
             break
         print("invalid header", header)
 
@@ -88,12 +100,19 @@ def receive_msg():
     meta = 0xf000 & payload_len
     payload_len = 0x0fff & payload_len
     payload = receive_raw(payload_len)
-    return schema.DurinBase.from_bytes(payload)
+    checksum = receive_raw(1)
+    if (len(payload) != payload_len):
+        print("got the wrong length", len(payload), payload_len)
+    try:
+        return schema.DurinBase.from_bytes_packed(payload)
+    except:
+        reject = schema.DurinBase.new_message()
+        reject.init("reject")
+        return reject
 
 def wait_ack(quiet = False):
     while True:
-        msg = receive_msg()
-        base = next(msg.gen)
+        base = receive_msg()
         if base.which() == "acknowledge":
             if not quiet:
                 print("acknowledged")
@@ -103,6 +122,7 @@ def wait_ack(quiet = False):
                 print("rejected")
             return False
         print("got another message. sus", base.which())
+
 print("connecting...")
 s = None
 ser = None
@@ -111,7 +131,7 @@ if args.type == "wifi":
     s.connect((args.address, 1337))
 
 if args.type == "uart":
-    ser = serial.Serial(args.address, 2e6)
+    ser = serial.Serial(args.address, 2e6, rtscts=True)
     ser.read_all()
 
 print("connected")
@@ -123,7 +143,12 @@ if args.dict:
     msg = schema.DurinBase.new_message(**eval(args.dict))
     send_msg(msg)
     response = receive_msg()
-    print(next(response.gen))
+    print(response)
+
+if args.poweroff:
+    msg = schema.DurinBase.new_message()
+    msg.init("powerOff");
+    send_msg(msg)
 
 if args.set_led:
     print("setting the LED")
@@ -134,6 +159,47 @@ if args.set_led:
     msg.setLed.ledB = args.set_led[2]
     send_msg(msg)
     wait_ack()
+
+def driver_thread():
+    pygame.display.set_mode((250,250)) #it needs a window to work
+    pygame.init()
+    while True:
+        x = 0
+        y = 0
+        r = 0
+        if (pygame.key.get_pressed()[pygame.K_a]):
+            r = 200
+        if (pygame.key.get_pressed()[pygame.K_d]):
+            r = -200
+        if (pygame.key.get_pressed()[pygame.K_w]):
+            y = 200
+        if (pygame.key.get_pressed()[pygame.K_s]):
+            y = -200
+        if (pygame.key.get_pressed()[pygame.K_q]):
+            x = -200
+        if (pygame.key.get_pressed()[pygame.K_e]):
+            x = 200
+        if (pygame.key.get_pressed()[pygame.K_LSHIFT]):
+            x *= 4
+            y *= 4
+            r *= 3
+        if (pygame.key.get_pressed()[pygame.K_LCTRL]):
+            x *= 0.5
+            y *= 0.5
+
+        msg = schema.DurinBase.new_message()
+        msg.init("setRobotVelocity")
+        msg.setRobotVelocity.velocityXMms = x
+        msg.setRobotVelocity.velocityYMms = y
+        msg.setRobotVelocity.rotationDegs = r
+        send_msg(msg)
+        time.sleep(0.05)
+        pygame.event.pump()
+
+if args.drive:
+    print("move with wasd+qe")
+    t = Thread(target=driver_thread)
+    t.start()
 
 if args.move:
     print("setting the velocity")
@@ -176,25 +242,62 @@ if args.read_logs:
     wait_ack()
     print("log output")
     while True:
-        log = receive_msg()
-        base = next(log.gen)
+        base = receive_msg()
         if base.which() == "textLogging":
             print(base.textLogging.log, end="")
         else:
             print(base)
 
-if args.uart_stream:
+
+
+def stream_uart_thread():
+    while True:
+        base = receive_msg()
+        print(base)
+
+def stream_wifi_thread():
+    udp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_server.bind(("0.0.0.0", 1336))
+
+    while True:
+        buf = udp_server.recv(2048)
+        base = schema.DurinBase.from_bytes_packed(buf[3:])
+        print(base)
+
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        s.connect(("34.34.34.34", 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return [int(x) for x in ip.split(".")]
+
+if args.stream:
+    print("enabling stream")
+    msg = schema.DurinBase.new_message()
+    msg.init("setTofStreamPeriod").periodMs = schema.streamPeriodMax
+    send_msg(msg)
+    msg = schema.DurinBase.new_message()
+    msg.init("setTofResolution").resolution = schema.TofResolutions.resolution4x4rate60Hz
+    send_msg(msg)
     msg = schema.DurinBase.new_message()
     msg.init("enableStreaming")
-    msg.enableStreaming.destination.uartOnly = None
-
+    if args.type == "uart":
+        msg.enableStreaming.destination.uartOnly = None
+        t = Thread(target=stream_uart_thread)
+    if args.type == "wifi":
+        msg.enableStreaming.destination.init("udpOnly") 
+        msg.enableStreaming.destination.udpOnly.ip = get_ip()
+        msg.enableStreaming.destination.udpOnly.port = 1336
+        t = Thread(target=stream_wifi_thread)
     send_msg(msg)
-    wait_ack()
-    print("stream output")
-    while True:
-        log = receive_msg()
-        base = next(log.gen)
-        print(base)
+    # wait_ack()
+    t.start()
+
 
 
 success = True

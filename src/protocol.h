@@ -13,3 +13,6 @@ struct protocol_state {
 };
 
 void protocol_parse_byte(struct protocol_state *state, uint8_t byte);
+
+void init_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase *msg);
+void finish_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase *msg, uint8_t *buf, uint16_t *len);

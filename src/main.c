@@ -75,6 +75,7 @@ void rt_loop(void* arg) {
     uint64_t average_time = 0;
     uint64_t worst_time = 0;
     uint64_t best_time = 874983247;
+    uint64_t last_check = 0;
     while (1) {
         start_time = end_time;
         durin.info.cycle_count += 1;
@@ -99,10 +100,12 @@ void rt_loop(void* arg) {
         if (durin.info.cycle_count % 1000 == 0) {
                 // float ax, ay, az, gx, gy, gz, mx, my, mz;
                 // icm20948_parseAllMetric(&icm, &ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
-                // printf("accelerometer metric: %f %f %f %f %f %f %f %f %f\n", ax, ay, az, gx, gy, gz, mx, my, mz);                
-                printf("loop time average: %lld worst: %lld best: %lld\n", average_time, worst_time, best_time);
+                // printf("accelerometer metric: %f %f %f %f %f %f %f %f %f\n", ax, ay, az, gx, gy, gz, mx, my, mz);
+                printf("loop time average: %lld worst: %lld best: %lld total: %lld\n", average_time, worst_time, best_time, end_time - last_check);
+                last_check = end_time;
                 best_time = 9237492743;
                 worst_time = 0;
+                end_time = esp_timer_get_time();
         }
         while (end_time < start_time + MAIN_LOOP_PERIOD) {
             end_time = esp_timer_get_time();
@@ -119,8 +122,6 @@ void init_i2c(void* arg) {
     nbe_i2c_init(&durin.hw.i2c_imu, I2C_NUM_IMU, PIN_IMU_SDA, PIN_IMU_SCL, I2C_IMU_HZ);
 }
 
-//run all drivers on core1
-//run main loop on core0
 void setup(void* arg) {
     printf("booting\n");
 
@@ -132,6 +133,7 @@ void setup(void* arg) {
     esp_timer_early_init();
 
     esp_ipc_call_blocking(RT_CORE, init_i2c, NULL);
+    // init_i2c(NULL);
 
     // servo
     init_servo();
@@ -145,7 +147,7 @@ void setup(void* arg) {
     init_imu();
 
     // uwb
-    // init_uwb();
+    init_uwb();
 
     uint8_t working_tof = 0;
     for (uint8_t i = 0; i < 8; i++) {
@@ -162,6 +164,7 @@ void setup(void* arg) {
     } else {
         set_led(RED);
     }
+    
     durin.info.init_finished = 1;
     printf("init done\n");
     printf("version 11\n");
@@ -174,11 +177,13 @@ void setup(void* arg) {
 void app_main() {
     durin.info.logging_enabled = EnableLogging_disabled;
     
-    printf("wtf\n");
     init_user_uart();
-    // _GLOBAL_REENT->_stdout = fwopen(NULL, &void_writefn);
-    // static char stdout_buf[128];
-    // setvbuf(_GLOBAL_REENT->_stdout, stdout_buf, _IOLBF, 128);
+
+    #ifdef USER_UART_ENABLED
+    _GLOBAL_REENT->_stdout = fwopen(NULL, &durin_writefn);
+    static char stdout_buf[129]; //magic extra byte for null
+    setvbuf(_GLOBAL_REENT->_stdout, stdout_buf, _IOLBF, 128);
+    #endif
 
     durin.info.init_finished = 0;
     esp_event_loop_create_default();
@@ -218,17 +223,14 @@ int IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     struct capn_segment *cs = capn_root(&c).seg;    
     struct DurinBase msg;
     struct TextLogging log;
-    char *zero_terminated = malloc(size + 1);
-    memcpy(zero_terminated, data, size);
-    zero_terminated[size + 1] = '\0';
+    ((char*) data)[size] = '\0';
     log.log = (struct capn_text) {
         .len = size,
-        .str = zero_terminated,
+        .str = data,
         .seg = NULL,
     };
     int e = 0;
     uint8_t *buf = malloc(size + 100);
-
 
     uint16_t len;
     msg.textLogging = new_TextLogging(cs);
@@ -238,6 +240,7 @@ int IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     write_DurinBase(&msg, durin_ptr);
     e = capn_setp(capn_root(&c), 0, durin_ptr.p);              
     len = capn_write_mem(&c, buf, size + 100, CAPN_PACKED);
+
     if (durin.info.logging_enabled == EnableLogging_uart) {
         send_response(buf, len, CHANNEL_UART);
     }
@@ -248,7 +251,6 @@ int IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
         send_response(buf, len, CHANNEL_TCP);
         send_response(buf, len, CHANNEL_UART);
     }
-    uart_wait_tx_idle_polling(UART_USER);
     capn_free(&c);
     free(buf);
     in_writefn = 0;

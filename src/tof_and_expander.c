@@ -5,6 +5,7 @@
 #include "hardware.h"
 #include "tof_and_expander.h"
 #include "pt.h"
+#include "protocol.h"
 
 #define EXPANDER_ADDRESS (0x20)
 
@@ -18,6 +19,12 @@ VL53L5CX_Configuration tof_sensors[NUM_VL53L5CX];
 void expander_write(uint16_t output);
 void expander_read(uint8_t *buf);
 uint16_t expander_parse(uint8_t *buf);
+
+enum TofResolutions wanted_tof_resolution = 0;
+
+void set_tof_resolution(enum TofResolutions resolution) {
+    wanted_tof_resolution = resolution;
+}
 
 void init_tof_and_expander() {
     for (uint8_t i = 0; i < 8; i++) {
@@ -34,6 +41,7 @@ void init_tof_and_expander() {
     vl53l5cx_is_alive(&tof_sensors[0], &alive);
     //sensor should be dead now
     if (alive) {
+        printf("TOF sensor alive while reset. broken port expander?\n");
         return; // abort if we heave a dead sensor
     }
 
@@ -63,54 +71,68 @@ void init_tof_and_expander() {
         vl53l5cx_start_ranging(&tof_sensors[i]);
         vl53l5cx_set_i2c_address(&tof_sensors[i], VL53L5CX_ADDRESS_CHAIN_START + i);
     }
+    durin.info.tof_resolution = TofResolutions_resolution8x8rate15Hz;
 }
 
-void send_tof_telemetry(uint8_t start, uint8_t end) {
-    struct capn c;
-             capn_init_malloc(&c);
-             struct capn_segment *cs = capn_root(&c).seg;    
-             struct DurinBase msg;
-             uint8_t buf[1500];
-    uint16_t len;
-    struct TofObservations tof_observations;
-             tof_observations.observations = new_TofObservations_TofObservation_list(cs, end-start);
-             for (uint8_t i = start; i < end; i++) {
-        uint8_t id = i;
-                 struct TofObservations_TofObservation observation;
-        observation.id = id;
-        uint8_t pixels = 64;
-                observation.ranges = capn_new_list16(cs, pixels);
-                 capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
-                 set_TofObservations_TofObservation(&observation, tof_observations.observations, i - start);        
-             }
 
-             msg.tofObservations = new_TofObservations(cs);
-             write_TofObservations(&tof_observations, msg.tofObservations);
-             msg.which = DurinBase_tofObservations;
-         
-             DurinBase_ptr durin_response_ptr = new_DurinBase(cs);
-             write_DurinBase(&msg, durin_response_ptr);
-             int e = capn_setp(capn_root(&c), 0, durin_response_ptr.p);          
-             
-             len = capn_write_mem(&c, buf, sizeof(buf), CAPN_PACKED);
-             capn_free(&c);
-             if (len == -1) {
+void build_tof_message(TofObservations_ptr *ptr, struct capn_segment *cs, uint8_t *to_send) {
+    struct TofObservations tof_observations;
+    uint8_t num_sensors = 0;
+    for (uint8_t i = 0; i < 8; i++) {
+        if (to_send[i]) {
+            num_sensors++;
+        }
+    }
+    tof_observations.observations = new_TofObservations_TofObservation_list(cs, num_sensors);
+    uint8_t sensor_index = 0;
+    for (uint8_t i = 0; i < 8; i++) {
+        if (!to_send[i]) {
+            continue;
+        }
+        uint8_t pixels;
+        uint8_t id = i;
+        struct TofObservations_TofObservation observation;
+        observation.id = id;
+        if (durin.info.tof_resolution == TofResolutions_resolution4x4rate60Hz) {
+            pixels = 16;
+        } else {
+            pixels = 64;
+        }
+        observation.ranges = capn_new_list16(cs, pixels);
+        capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
+        set_TofObservations_TofObservation(&observation, tof_observations.observations, sensor_index);
+        sensor_index++;
+    }
+    *ptr = new_TofObservations(cs);
+    write_TofObservations(&tof_observations, *ptr);
+}
+
+void send_tof_telemetry(uint8_t *to_send) {
+    struct capn c;
+    struct capn_segment *cs;    
+    struct DurinBase msg;
+    init_durinbase(&c, &cs, &msg);
+    build_tof_message(&msg.tofObservations, cs, to_send);
+    msg.which = DurinBase_tofObservations;
+    uint8_t buf[1500];
+    uint16_t len = 1500;
+    finish_durinbase(&c, &cs, &msg, buf, &len);
+    if (len == -1) {
         printf("tof telemetry LENGTH ERROR\n");
         return;
     }
-         printf("%s %d %d\n", "tof", __LINE__, len);
     send_telemetry(buf, len);
-             
 }
 
 void update_tof_and_expander(struct pt *pt) {
     PT_BEGIN(pt);
-
     static uint32_t current_port_output = 1 << 16; // only 16 outputs so this value is "invalid"
     static uint8_t tof_index;
     static uint64_t last_tof_update;
     static uint64_t last_tof_send;
     static bool tof_enabled = true;
+    static uint8_t tof_update_rate = 15;
+    static uint8_t img_size = 8;
     last_tof_update = esp_timer_get_time();
     while (1) {
         PT_YIELD(pt);
@@ -125,12 +147,7 @@ void update_tof_and_expander(struct pt *pt) {
         TOF_I2C_WAIT();
         durin.hw.port_expander_input = expander_parse(buf);
 
-        // update at 15 Hz
-        if (esp_timer_get_time() - last_tof_update < 1000000 / 15) {
-            continue;
-        }
-
-        if (tof_enabled && durin.info.streaming_enabled == false) {
+        if (tof_enabled && durin.info.active == false) {
             printf("disabled tof\n");
             for (tof_index = 0; tof_index < NUM_VL53L5CX; tof_index++) {
                 if (!durin.info.tof_sensor_alive[tof_index]) {
@@ -141,7 +158,7 @@ void update_tof_and_expander(struct pt *pt) {
             tof_enabled = false;
         }
 
-        if (tof_enabled == false && durin.info.streaming_enabled) {
+        if (tof_enabled == false && durin.info.active) {
             printf("enabled tof\n");
             for (tof_index = 0; tof_index < NUM_VL53L5CX; tof_index++) {
                 if (!durin.info.tof_sensor_alive[tof_index]) {
@@ -151,7 +168,40 @@ void update_tof_and_expander(struct pt *pt) {
             }
             tof_enabled = true;
         }
+
+        if (wanted_tof_resolution != durin.info.tof_resolution) {
+            printf("changing tof resolution from %d to %d\n", durin.info.tof_resolution, wanted_tof_resolution);
+            durin.info.tof_resolution = wanted_tof_resolution;
+            for (tof_index = 0; tof_index < NUM_VL53L5CX; tof_index++) {
+                if (!durin.info.tof_sensor_alive[tof_index]) {
+                    continue;
+                }
+                vl53l5cx_stop_ranging(&tof_sensors[tof_index]);
+                if (durin.info.tof_resolution == TofResolutions_resolution8x8rate15Hz) {
+                    vl53l5cx_set_resolution(&tof_sensors[tof_index], VL53L5CX_RESOLUTION_8X8);
+                    vl53l5cx_set_ranging_frequency_hz(&tof_sensors[tof_index], 15);
+                } else
+                if (durin.info.tof_resolution == TofResolutions_resolution4x4rate60Hz) {                    
+                    vl53l5cx_set_resolution(&tof_sensors[tof_index], VL53L5CX_RESOLUTION_4X4);
+                    vl53l5cx_set_ranging_frequency_hz(&tof_sensors[tof_index], 60);
+                }
+                vl53l5cx_start_ranging(&tof_sensors[tof_index]);
+            }
+            if (durin.info.tof_resolution == TofResolutions_resolution4x4rate60Hz) {
+                tof_update_rate = 60;
+                img_size = 4;
+            } else
+            if (durin.info.tof_resolution == TofResolutions_resolution8x8rate15Hz) {
+                tof_update_rate = 15;
+                img_size = 8;
+            }
+        }
         if (!durin.info.streaming_enabled) {
+            continue;
+        }
+
+        // update at 15 Hz
+        if (esp_timer_get_time() - last_tof_update < 1000000 / tof_update_rate) {
             continue;
         }
 
@@ -166,11 +216,11 @@ void update_tof_and_expander(struct pt *pt) {
             TOF_I2C_WAIT();
             VL53L5CX_ResultsData result;
             vl53l5cx_get_ranging_data_async_finish(&tof_sensors[tof_index], &result);
-            for (uint8_t src_y = 0; src_y < 8; src_y++) {
-                for (uint8_t src_x = 0; src_x < 8; src_x++) {
-                    uint8_t target_x = 7 - src_x;
+            for (uint8_t src_y = 0; src_y < img_size; src_y++) {
+                for (uint8_t src_x = 0; src_x < img_size; src_x++) {
+                    uint8_t target_x = img_size - 1 - src_x;
                     uint8_t target_y = src_y;
-                    uint8_t status = result.target_status[src_x + src_y * 8];
+                    uint8_t status = result.target_status[src_x + src_y * img_size];
                     uint8_t status_bits = 0;
                     switch (status) {
                         case 0: // not updated
@@ -187,18 +237,21 @@ void update_tof_and_expander(struct pt *pt) {
                             status_bits = 0b10;
                             break;
                     }
-                    durin.telemetry.ranging_data[tof_index][target_x + 8 * target_y] = result.distance_mm[src_x + src_y * 8] | (status_bits << 14);
+                    durin.telemetry.ranging_data[tof_index][target_x + img_size * target_y] = result.distance_mm[src_x + src_y * img_size] | (status_bits << 14);
                 }
             }
         }
         if (esp_timer_get_time() - last_tof_send > durin.info.tof_stream_period * 1000) {
             last_tof_send = esp_timer_get_time();
-            send_tof_telemetry(0, 2); //split into 4 to keep udp package <500
-            send_tof_telemetry(2, 4);
-            send_tof_telemetry(4, 6);
-            send_tof_telemetry(6, 8);
+            uint8_t one[8] =   {1,1,0,0,0,0,0,0};
+            uint8_t two[8] =   {0,0,1,1,0,0,0,0};
+            uint8_t three[8] = {0,0,0,0,1,1,0,0};
+            uint8_t four[8] =  {0,0,0,0,0,0,1,1};
+            send_tof_telemetry(one);
+            send_tof_telemetry(two);
+            send_tof_telemetry(three);
+            send_tof_telemetry(four);
         }
-
     }
     PT_END(pt);
 }
