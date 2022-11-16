@@ -122,6 +122,7 @@ void update_servo(struct pt *pt) {
             speed3 = durin.control.setWheelVelocity.wheelFrontLeftMms * MMS_TO_RPM;
             speed4 = durin.control.setWheelVelocity.wheelFrontRightMms * MMS_TO_RPM;
         }
+        printf("speed %f %f %f %f\n", speed1, speed2,speed3,speed4);
 
         dx_set_goal_velocity(&dx, SERVO1, speed1 * lerp_factor, 1);
         PT_YIELD(pt);

@@ -17,7 +17,7 @@
 #define DEFAULT_SSID "NCSpeople"
 #define DEFAULT_PASSWORD "peopleNCS"
 
-// #define USER_UART_ENABLED
+#define USER_UART_ENABLED
 
 #define CAPN_PACKED 1
 

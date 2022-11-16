@@ -15,7 +15,7 @@
 #define DEFAULT_VREF 1100 
 #define VOLT_LP_GAIN 0.9995
 
-#define RAW
+#define AMP
 
 #ifdef RAW
 #define BAT_K 5.45
@@ -215,6 +215,7 @@ void update_misc(struct pt *pt) {
     static uint64_t pressed_previously = 0;
     static uint64_t last_action = 0;
     last_action = esp_timer_get_time();
+    durin.telemetry.battery_voltage = 8;
 
     while (1) {
         uint64_t current_time = esp_timer_get_time();
@@ -270,7 +271,7 @@ void update_misc(struct pt *pt) {
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
         float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
         new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
-        // printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
+        printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
 
         if (power_off_when && esp_timer_get_time() > power_off_when) {
@@ -279,10 +280,10 @@ void update_misc(struct pt *pt) {
             power_off();
         }
 
-        if (durin.telemetry.battery_voltage < 6.7) {
-            // printf("no battery\n");
-            // vTaskDelay(100);
-            // power_off();
+        if (durin.telemetry.battery_voltage < 6.6) {
+            printf("no battery\n");
+            vTaskDelay(100);
+            power_off();
         }
         PT_YIELD(pt);
     }
