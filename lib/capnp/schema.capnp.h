@@ -58,6 +58,7 @@ struct OtaUpdateCommit;
 struct OtaUpdate;
 struct EnableLogging;
 struct Ping;
+struct Error;
 
 typedef struct {capn_ptr p;} DurinBase_ptr;
 typedef struct {capn_ptr p;} Reject_ptr;
@@ -97,6 +98,7 @@ typedef struct {capn_ptr p;} OtaUpdateCommit_ptr;
 typedef struct {capn_ptr p;} OtaUpdate_ptr;
 typedef struct {capn_ptr p;} EnableLogging_ptr;
 typedef struct {capn_ptr p;} Ping_ptr;
+typedef struct {capn_ptr p;} Error_ptr;
 
 typedef struct {capn_ptr p;} DurinBase_list;
 typedef struct {capn_ptr p;} Reject_list;
@@ -136,6 +138,7 @@ typedef struct {capn_ptr p;} OtaUpdateCommit_list;
 typedef struct {capn_ptr p;} OtaUpdate_list;
 typedef struct {capn_ptr p;} EnableLogging_list;
 typedef struct {capn_ptr p;} Ping_list;
+typedef struct {capn_ptr p;} Error_list;
 
 enum TofResolutions {
 	TofResolutions_resolution4x4rate60Hz = 0,
@@ -151,12 +154,20 @@ enum UwbNodePurpose {
 	UwbNodePurpose_passive = 5,
 	UwbNodePurpose_user = 6
 };
+
+enum ErrorType {
+	ErrorType_wheelVelocityTooHigh = 0,
+	ErrorType_positioningHighDisplacement = 1
+};
 extern uint16_t streamPeriodMax;
 extern uint16_t streamPeriodMin;
 extern uint16_t durinTcpPort;
 extern uint32_t durinBaud;
 extern uint16_t lengthMask;
 extern uint16_t metaMask;
+extern union capn_conv_f32 accelerometerToGs;
+extern union capn_conv_f32 gyroscopeToRadiansPerSecond;
+extern union capn_conv_f32 magnetometerToMicroTesla;
 enum DurinBase_which {
 	DurinBase_reject = 0,
 	DurinBase_acknowledge = 1,
@@ -434,22 +445,22 @@ static const size_t GetImuMeasurement_struct_bytes_count = 0;
 
 
 struct ImuMeasurement {
-	float accelerometerXG;
-	float accelerometerYG;
-	float accelerometerZG;
-	float gyroscopeXRads;
-	float gyroscopeYRads;
-	float gyroscopeZRads;
-	float magnetometerXUt;
-	float magnetometerYUt;
-	float magnetometerZUt;
+	int16_t accelerometerX;
+	int16_t accelerometerY;
+	int16_t accelerometerZ;
+	int16_t gyroscopeX;
+	int16_t gyroscopeY;
+	int16_t gyroscopeZ;
+	int16_t magnetometerX;
+	int16_t magnetometerY;
+	int16_t magnetometerZ;
 };
 
-static const size_t ImuMeasurement_word_count = 5;
+static const size_t ImuMeasurement_word_count = 3;
 
 static const size_t ImuMeasurement_pointer_count = 0;
 
-static const size_t ImuMeasurement_struct_bytes_count = 40;
+static const size_t ImuMeasurement_struct_bytes_count = 24;
 
 
 struct SetSystemStatusStreamPeriod {
@@ -715,6 +726,18 @@ static const size_t Ping_pointer_count = 0;
 static const size_t Ping_struct_bytes_count = 0;
 
 
+struct Error {
+	enum ErrorType type;
+	capn_text string;
+};
+
+static const size_t Error_word_count = 1;
+
+static const size_t Error_pointer_count = 1;
+
+static const size_t Error_struct_bytes_count = 16;
+
+
 DurinBase_ptr new_DurinBase(struct capn_segment*);
 Reject_ptr new_Reject(struct capn_segment*);
 Acknowledge_ptr new_Acknowledge(struct capn_segment*);
@@ -753,6 +776,7 @@ OtaUpdateCommit_ptr new_OtaUpdateCommit(struct capn_segment*);
 OtaUpdate_ptr new_OtaUpdate(struct capn_segment*);
 EnableLogging_ptr new_EnableLogging(struct capn_segment*);
 Ping_ptr new_Ping(struct capn_segment*);
+Error_ptr new_Error(struct capn_segment*);
 
 DurinBase_list new_DurinBase_list(struct capn_segment*, int len);
 Reject_list new_Reject_list(struct capn_segment*, int len);
@@ -792,6 +816,7 @@ OtaUpdateCommit_list new_OtaUpdateCommit_list(struct capn_segment*, int len);
 OtaUpdate_list new_OtaUpdate_list(struct capn_segment*, int len);
 EnableLogging_list new_EnableLogging_list(struct capn_segment*, int len);
 Ping_list new_Ping_list(struct capn_segment*, int len);
+Error_list new_Error_list(struct capn_segment*, int len);
 
 void read_DurinBase(struct DurinBase*, DurinBase_ptr);
 void read_Reject(struct Reject*, Reject_ptr);
@@ -831,6 +856,7 @@ void read_OtaUpdateCommit(struct OtaUpdateCommit*, OtaUpdateCommit_ptr);
 void read_OtaUpdate(struct OtaUpdate*, OtaUpdate_ptr);
 void read_EnableLogging(struct EnableLogging*, EnableLogging_ptr);
 void read_Ping(struct Ping*, Ping_ptr);
+void read_Error(struct Error*, Error_ptr);
 
 void write_DurinBase(const struct DurinBase*, DurinBase_ptr);
 void write_Reject(const struct Reject*, Reject_ptr);
@@ -870,6 +896,7 @@ void write_OtaUpdateCommit(const struct OtaUpdateCommit*, OtaUpdateCommit_ptr);
 void write_OtaUpdate(const struct OtaUpdate*, OtaUpdate_ptr);
 void write_EnableLogging(const struct EnableLogging*, EnableLogging_ptr);
 void write_Ping(const struct Ping*, Ping_ptr);
+void write_Error(const struct Error*, Error_ptr);
 
 void get_DurinBase(struct DurinBase*, DurinBase_list, int i);
 void get_Reject(struct Reject*, Reject_list, int i);
@@ -909,6 +936,7 @@ void get_OtaUpdateCommit(struct OtaUpdateCommit*, OtaUpdateCommit_list, int i);
 void get_OtaUpdate(struct OtaUpdate*, OtaUpdate_list, int i);
 void get_EnableLogging(struct EnableLogging*, EnableLogging_list, int i);
 void get_Ping(struct Ping*, Ping_list, int i);
+void get_Error(struct Error*, Error_list, int i);
 
 void set_DurinBase(const struct DurinBase*, DurinBase_list, int i);
 void set_Reject(const struct Reject*, Reject_list, int i);
@@ -948,6 +976,7 @@ void set_OtaUpdateCommit(const struct OtaUpdateCommit*, OtaUpdateCommit_list, in
 void set_OtaUpdate(const struct OtaUpdate*, OtaUpdate_list, int i);
 void set_EnableLogging(const struct EnableLogging*, EnableLogging_list, int i);
 void set_Ping(const struct Ping*, Ping_list, int i);
+void set_Error(const struct Error*, Error_list, int i);
 
 #ifdef __cplusplus
 }

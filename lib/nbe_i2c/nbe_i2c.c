@@ -266,6 +266,74 @@ void nbe_i2c_commit(nbe_i2c_t *nbe_i2c) {
     i2c_hal_trans_start(&nbe_i2c->hi2c);
 }
 
+void nbe_i2c_full_register_read(nbe_i2c_t *nbe_i2c, uint8_t address, uint16_t reg, enum nbe_i2c_register type, uint8_t *buf, uint8_t len) {
+    nbe_i2c_reset(nbe_i2c);
+    nbe_i2c_set_rx_buf(nbe_i2c, buf);
+
+    uint8_t write_addr = i2c_first_byte_write(address);
+    uint8_t read_addr = i2c_first_byte_read(address);
+    uint8_t reg_buf[2];
+    uint8_t reg_len = 0;
+    if (type == NBE_I2C_REGISTER_8) {
+        reg_buf[0] = reg;
+        reg_len = 1;
+    }
+    else if (type == NBE_I2C_REGISTER_BE16) {
+        reg_buf[0] = (uint8_t) (reg >> 8);
+        reg_buf[1] = (uint8_t) (reg);
+        reg_len = 2;
+    }
+    else if (type == NBE_I2C_REGISTER_LE16) {
+        reg_buf[0] = (uint8_t) (reg);
+        reg_buf[1] = (uint8_t) (reg >> 8);
+        reg_len = 2;
+    }
+
+    nbe_i2c_start(nbe_i2c);
+    nbe_i2c_write_preamble(nbe_i2c, &write_addr, 1);
+    nbe_i2c_write_preamble(nbe_i2c, reg_buf, reg_len);
+    
+    nbe_i2c_start(nbe_i2c);
+    nbe_i2c_write_preamble(nbe_i2c, &read_addr, 1); // write the device address again
+    if (len - 1 > 0) {
+        nbe_i2c_read_ack(nbe_i2c, len - 1);
+    }
+    nbe_i2c_read_nak(nbe_i2c, 1);
+    nbe_i2c_stop(nbe_i2c);
+    nbe_i2c_commit(nbe_i2c);
+}
+
+void nbe_i2c_full_register_write(nbe_i2c_t *nbe_i2c, uint8_t address, uint16_t reg, enum nbe_i2c_register type, uint8_t *buf, uint8_t len) {
+    nbe_i2c_reset(nbe_i2c);
+    nbe_i2c_set_tx_buf(nbe_i2c, buf);
+
+    uint8_t write_addr = i2c_first_byte_write(address);
+    uint8_t read_addr = i2c_first_byte_read(address);
+    uint8_t reg_buf[2];
+    uint8_t reg_len = 1;
+    if (type == NBE_I2C_REGISTER_8) {
+        reg_buf[0] = reg;
+        reg_len = 1;
+    }
+    else if (type == NBE_I2C_REGISTER_BE16) {
+        reg_buf[0] = (uint8_t) (reg >> 8);
+        reg_buf[1] = (uint8_t) (reg);
+        reg_len = 2;
+    }
+    else if (type == NBE_I2C_REGISTER_LE16) {
+        reg_buf[0] = (uint8_t) (reg);
+        reg_buf[1] = (uint8_t) (reg >> 8);
+        reg_len = 2;
+    }
+
+    nbe_i2c_start(nbe_i2c);
+    nbe_i2c_write_preamble(nbe_i2c, &write_addr, 1);
+    nbe_i2c_write_preamble(nbe_i2c, reg_buf, reg_len);
+    nbe_i2c_write(nbe_i2c, len);
+    nbe_i2c_stop(nbe_i2c);
+    nbe_i2c_commit(nbe_i2c);
+}
+
 #ifdef __cplusplus
 }
 #endif

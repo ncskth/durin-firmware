@@ -13,6 +13,7 @@
 #include "position_solver.h"
 #include "durin.h"
 #include "protocol.h"
+#include "tof_and_expander.h"
 
 #define USER_UART
 
@@ -84,6 +85,13 @@ void init_uwb() {
     };
     spi_bus_add_device(SPI_UWB_HOST, &uwb_conf, &deca_spi_device);
 
+    configure_expander_pin(EX_PIN_UWB_RST, 0);
+    write_expander_pin(EX_PIN_UWB_RST, 1);
+    vTaskDelay(1);
+    write_expander_pin(EX_PIN_UWB_RST, 0);
+    vTaskDelay(1);
+    write_expander_pin(EX_PIN_UWB_RST, 1);
+    vTaskDelay(1);
 
     while (!dwt_checkidlerc()) {}
     if (dwt_initialise(DWT_DW_INIT) == DWT_ERROR) {
@@ -328,7 +336,6 @@ static void send_position_telemetry() {
     struct capn_segment *cs;
     struct DurinBase msg;
     init_durinbase(&c, &cs, &msg);
-
     struct Position position;    
     if (durin.telemetry.fix_type == 3) {
         position.which = Position_vectorMm;
@@ -344,7 +351,7 @@ static void send_position_telemetry() {
 
     uint8_t buf[128];
     uint16_t len = sizeof(buf);
-    finish_durinbase(&c, cs, &msg, buf, &len);
+    finish_durinbase(&c, &cs, &msg, buf, &len);
     send_telemetry(buf, len);
 }
 

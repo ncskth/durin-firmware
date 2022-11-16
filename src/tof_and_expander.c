@@ -13,6 +13,13 @@
 #define VL53L5CX_ADDRESS_CHAIN_START 0x41
 VL53L5CX_Configuration tof_sensors[NUM_VL53L5CX];
 
+uint16_t expander_current_output = 0;
+uint16_t expander_current_input = 0;
+uint16_t expander_current_configuration = ~0;
+
+uint16_t expander_wanted_output = 0;
+uint16_t expander_wanted_configuration = ~0;
+
 #define TOF_I2C_WAIT() do { PT_YIELD(pt); } while (nbe_i2c_is_busy(&durin.hw.i2c_tof))
 #define TOF_I2C_WAIT_BLOCK() do {} while (nbe_i2c_is_busy(&durin.hw.i2c_tof))
 
@@ -28,11 +35,21 @@ void set_tof_resolution(enum TofResolutions resolution) {
 
 void init_tof_and_expander() {
     for (uint8_t i = 0; i < 8; i++) {
-        durin.hw.port_expander_output |= 1 << i;
+        configure_expander_pin(i, 0);
     }
-    expander_write(durin.hw.port_expander_output);
-    TOF_I2C_WAIT_BLOCK();
-
+    vTaskDelay(1000);
+    for (uint8_t i = 0; i < 8; i++) {
+        write_expander_pin(i, 1);
+    }
+    vTaskDelay(1000);
+    for (uint8_t i = 0; i < 8; i++) {
+        write_expander_pin(i, 0);
+    }
+    vTaskDelay(1000);
+    for (uint8_t i = 0; i < 8; i++) {
+        write_expander_pin(i, 1);
+    }
+    vTaskDelay(1000);
     VL53L5CX_Platform platform;
     platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
     platform.nbe_i2c = &durin.hw.i2c_tof;
@@ -47,9 +64,7 @@ void init_tof_and_expander() {
 
     for (uint8_t i = 0 ; i < NUM_VL53L5CX; i++) {
         //unreset sensor
-        durin.hw.port_expander_output &= ~(1 << (TOF_RESET_START + i));
-        expander_write(durin.hw.port_expander_output);
-        TOF_I2C_WAIT_BLOCK();
+        write_expander_pin(i, 0);
 
         VL53L5CX_Platform platform;
         platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
@@ -59,7 +74,7 @@ void init_tof_and_expander() {
         vl53l5cx_is_alive(&tof_sensors[i], &alive);
         if (!alive) {
             durin.info.tof_sensor_alive[i] = 0;
-            // printf("dead tof sensor with index %d\n", i);
+            printf("dead tof sensor with index %d\n", i);
             continue;
         }
         printf("starting TOF %d\n", i);
@@ -136,16 +151,13 @@ void update_tof_and_expander(struct pt *pt) {
     last_tof_update = esp_timer_get_time();
     while (1) {
         PT_YIELD(pt);
-        if (current_port_output != durin.hw.port_expander_output) {
-            expander_write(durin.hw.port_expander_output);
+        if (expander_current_output != expander_wanted_output) {
+            nbe_i2c_full_register_write(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 2, NBE_I2C_REGISTER_8, &expander_wanted_output, 2);
             TOF_I2C_WAIT();
-            current_port_output = durin.hw.port_expander_output;
-            durin.info.expander_awaiting_update = 0;
+            expander_current_output = expander_wanted_output;
         }
-        static uint8_t buf[2];
-        expander_read(buf);
+        nbe_i2c_full_register_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 0, NBE_I2C_REGISTER_8, &expander_current_input, 2);
         TOF_I2C_WAIT();
-        durin.hw.port_expander_input = expander_parse(buf);
 
         if (tof_enabled && durin.info.active == false) {
             printf("disabled tof\n");
@@ -256,34 +268,41 @@ void update_tof_and_expander(struct pt *pt) {
     PT_END(pt);
 }
 
-
-//CAN ONLY BE USED IN INIT BEFORE TOF_AND_EXPANDER_UPDATE_IS_RUNNING
-void init_expander_write() {
-    expander_write(durin.hw.port_expander_output);
+bool configure_expander_pin(uint8_t pin, bool is_input) {
+    if (is_input) {
+        expander_wanted_configuration |= 1 << pin;
+    } else {
+        expander_wanted_configuration &= ~(1 << pin);
+    }
+    if (!durin.info.init_finished) {
+        printf("configured %d\n", expander_wanted_configuration);
+        nbe_i2c_full_register_write(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 6, NBE_I2C_REGISTER_8, &expander_wanted_configuration, 2);
+        while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
+        expander_current_configuration = expander_wanted_configuration;
+    }
+    return ((expander_current_configuration & (1 << pin)) == is_input);
 }
 
-void init_expander_read() {
-
+bool write_expander_pin(uint8_t pin, bool value) {
+    if (value) {
+        expander_wanted_output |= 1 << pin;
+    } else {
+        expander_wanted_output &= ~(1 << pin);
+    }
+    if (!durin.info.init_finished) {
+        printf("wrote %d\n", expander_wanted_output);
+        nbe_i2c_full_register_write(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 2, NBE_I2C_REGISTER_8, &expander_wanted_output, 2);
+        while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
+        expander_current_output = expander_wanted_output;
+    }
+    return ((expander_current_output & (1 << pin)) == value);
 }
 
-void expander_write(uint16_t output) {
-    uint8_t buf[2];
-    buf[0] = output & 0x00ff;
-    buf[1] = (output >> 8) & 0x00ff;
-    nbe_i2c_start_write(&durin.hw.i2c_tof, EXPANDER_ADDRESS, NULL, NULL);
-    nbe_i2c_write_preamble(&durin.hw.i2c_tof, buf, 2);
-    nbe_i2c_stop(&durin.hw.i2c_tof);
-    nbe_i2c_commit(&durin.hw.i2c_tof);
-}
-
-void expander_read(uint8_t *buf) {
-    nbe_i2c_start_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, NULL, buf);
-    nbe_i2c_read_ack(&durin.hw.i2c_tof, 1);
-    nbe_i2c_read_nak(&durin.hw.i2c_tof, 1);
-    nbe_i2c_stop(&durin.hw.i2c_tof);
-    nbe_i2c_commit(&durin.hw.i2c_tof);
-}
-
-uint16_t expander_parse(uint8_t *buf) {
-    return buf[0] + (buf[1] << 8);
+bool read_expander_pin(uint8_t pin) {
+    if (!durin.info.init_finished) {
+        printf("read %d\n", expander_wanted_configuration);
+        nbe_i2c_full_register_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 0, NBE_I2C_REGISTER_8, &expander_current_input, 2);   
+        while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
+    }
+    return expander_current_input & (1 << pin);
 }

@@ -138,6 +138,7 @@ int enableI2cMaster(icm20948_t *icm);
 int selectAutoClockSource(icm20948_t *icm);
 int enableAccelGyro(icm20948_t *icm);
 int reset(icm20948_t *icm);
+int changeUserBankForce(icm20948_t *icm, enum UserBank userBank, uint8_t force);
 int changeUserBank(icm20948_t *icm, enum UserBank userBank);
 int writeRegister(icm20948_t *icm, uint8_t subAddress, uint8_t data);
 int readRegisters(icm20948_t *icm, uint8_t subAddress, uint8_t count, uint8_t* dest);
@@ -153,10 +154,9 @@ void delay(uint16_t ms);
 
 /* starts communication with the ICM-20948 */
 int icm20948_init(icm20948_t *icm, nbe_i2c_t *nbe_i2c, uint8_t address) {
-    icm->currentBank = -1;
     icm->address = address;
     icm->nbe_i2c = nbe_i2c;
-    if (changeUserBank(icm, USER_BANK_0) < 0) {  // Make sure that the user bank selection is in sync
+    if (changeUserBankForce(icm, USER_BANK_0, 1) < 0) {  // Make sure that the user bank selection is in sync
         return -1;
     }
 
@@ -171,7 +171,7 @@ int icm20948_init(icm20948_t *icm, nbe_i2c_t *nbe_i2c, uint8_t address) {
         return -3;
     }
     reset(icm);     // reset the ICM20948. Don't check return value as a reset clears the register and can't be verified.
-    delay(5);       // wait for ICM-20948 to come back up
+    delay(1);       // wait for ICM-20948 to come back up
     resetMag(icm);  // Don't check return value as a reset clears the register and can't be verified.
     if (selectAutoClockSource(icm) < 0) {
         return -6;
@@ -475,7 +475,11 @@ int resetMag(icm20948_t *icm) {
 }
 
 int changeUserBank(icm20948_t *icm, enum UserBank userBank) {
-    if (userBank == icm->currentBank) {
+    return changeUserBankForce(icm, userBank, 0);
+}
+
+int changeUserBankForce(icm20948_t *icm, enum UserBank userBank, uint8_t force) {
+    if (!force && userBank == icm->currentBank) {
         return 2;  // No need to change
     }
     uint8_t userBankRegValue = 0x00;
@@ -565,6 +569,7 @@ int writeRegister(icm20948_t *icm, uint8_t subAddress, uint8_t data) {
     nbe_i2c_stop(icm->nbe_i2c);
     nbe_i2c_commit(icm->nbe_i2c);
     while(nbe_i2c_is_busy(icm->nbe_i2c)) {};
+    delay(10);
     readRegisters(icm, subAddress, 1, icm->rxBuf);
     if (data != icm->rxBuf[0]) {
         printf("imu panic\n");

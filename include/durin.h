@@ -17,7 +17,7 @@
 #define DEFAULT_SSID "NCSpeople"
 #define DEFAULT_PASSWORD "peopleNCS"
 
-#define USER_UART_ENABLED
+// #define USER_UART_ENABLED
 
 #define CAPN_PACKED 1
 
@@ -41,7 +41,8 @@ struct durin_persistent {
 struct durin_telemetry {
     float battery_voltage;
     uint16_t ranging_data[8][8*8];
-    int16_t ax, ay, az, gx, gy, gz, mx, my, mz;
+    int16_t raw_ax, raw_ay, raw_az, raw_gx, raw_gy, raw_gz, raw_mx, raw_my, raw_mz;
+    float ax, ay, az, gx, gy, gz, mx, my, mz;
     float pos_x, pos_y, pos_z;
     uint8_t fix_type;
     struct distance_measurement distance_data[64];
@@ -60,7 +61,6 @@ struct durin_info {
     uint16_t telemetry_udp_port;
     uint32_t telemetry_udp_address;
     uint8_t tof_sensor_alive[8];
-    uint8_t expander_awaiting_update;
     uint8_t motor_enabled;
     uint8_t user_enabled;
     uint16_t tof_stream_period;
@@ -85,8 +85,6 @@ struct durin_control {
 struct durin_hardware {
     nbe_i2c_t i2c_tof;
     nbe_i2c_t i2c_imu;
-    uint16_t port_expander_output;
-    uint16_t port_expander_input;
     dynamixel_t dx;
 };
 

@@ -98,9 +98,6 @@ void rt_loop(void* arg) {
         }
 
         if (durin.info.cycle_count % 1000 == 0) {
-                // float ax, ay, az, gx, gy, gz, mx, my, mz;
-                // icm20948_parseAllMetric(&icm, &ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz);
-                // printf("accelerometer metric: %f %f %f %f %f %f %f %f %f\n", ax, ay, az, gx, gy, gz, mx, my, mz);
                 printf("loop time average: %lld worst: %lld best: %lld total: %lld\n", average_time, worst_time, best_time, end_time - last_check);
                 last_check = end_time;
                 best_time = 9237492743;
@@ -125,28 +122,35 @@ void init_i2c(void* arg) {
 void setup(void* arg) {
     printf("booting\n");
 
+    esp_ipc_call_blocking(RT_CORE, init_i2c, NULL);
+
     // misc
+    printf("init misc\n");
     init_misc();
     set_led(BLUE);
 
     // timer
     esp_timer_early_init();
 
-    esp_ipc_call_blocking(RT_CORE, init_i2c, NULL);
     // init_i2c(NULL);
 
     // servo
+    printf("init servo\n");
     init_servo();
 
     // init TOF
+    printf("init tof\n");
     init_tof_and_expander();
 
     // wifi
+    printf("init wifi\n");
     init_wifi();
 
+    printf("init imu\n");
     init_imu();
 
     // uwb
+    printf("init uwb\n");
     init_uwb();
 
     uint8_t working_tof = 0;

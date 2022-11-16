@@ -15,6 +15,9 @@ uint16_t durinTcpPort = 1337;
 uint32_t durinBaud = 2000000u;
 uint16_t lengthMask = 4095;
 uint16_t metaMask = 61440;
+union capn_conv_f32 accelerometerToGs = {0x3f800000u};
+union capn_conv_f32 gyroscopeToRadiansPerSecond = {0x3f800000u};
+union capn_conv_f32 magnetometerToMicroTesla = {0x3f800000u};
 
 DurinBase_ptr new_DurinBase(struct capn_segment *s) {
 	DurinBase_ptr p;
@@ -653,39 +656,39 @@ void set_GetImuMeasurement(const struct GetImuMeasurement *s, GetImuMeasurement_
 
 ImuMeasurement_ptr new_ImuMeasurement(struct capn_segment *s) {
 	ImuMeasurement_ptr p;
-	p.p = capn_new_struct(s, 40, 0);
+	p.p = capn_new_struct(s, 24, 0);
 	return p;
 }
 ImuMeasurement_list new_ImuMeasurement_list(struct capn_segment *s, int len) {
 	ImuMeasurement_list p;
-	p.p = capn_new_list(s, len, 40, 0);
+	p.p = capn_new_list(s, len, 24, 0);
 	return p;
 }
 void read_ImuMeasurement(struct ImuMeasurement *s capnp_unused, ImuMeasurement_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	s->accelerometerXG = capn_to_f32(capn_read32(p.p, 0));
-	s->accelerometerYG = capn_to_f32(capn_read32(p.p, 4));
-	s->accelerometerZG = capn_to_f32(capn_read32(p.p, 8));
-	s->gyroscopeXRads = capn_to_f32(capn_read32(p.p, 12));
-	s->gyroscopeYRads = capn_to_f32(capn_read32(p.p, 16));
-	s->gyroscopeZRads = capn_to_f32(capn_read32(p.p, 20));
-	s->magnetometerXUt = capn_to_f32(capn_read32(p.p, 24));
-	s->magnetometerYUt = capn_to_f32(capn_read32(p.p, 28));
-	s->magnetometerZUt = capn_to_f32(capn_read32(p.p, 32));
+	s->accelerometerX = (int16_t) ((int16_t)capn_read16(p.p, 0));
+	s->accelerometerY = (int16_t) ((int16_t)capn_read16(p.p, 2));
+	s->accelerometerZ = (int16_t) ((int16_t)capn_read16(p.p, 4));
+	s->gyroscopeX = (int16_t) ((int16_t)capn_read16(p.p, 6));
+	s->gyroscopeY = (int16_t) ((int16_t)capn_read16(p.p, 8));
+	s->gyroscopeZ = (int16_t) ((int16_t)capn_read16(p.p, 10));
+	s->magnetometerX = (int16_t) ((int16_t)capn_read16(p.p, 12));
+	s->magnetometerY = (int16_t) ((int16_t)capn_read16(p.p, 14));
+	s->magnetometerZ = (int16_t) ((int16_t)capn_read16(p.p, 16));
 }
 void write_ImuMeasurement(const struct ImuMeasurement *s capnp_unused, ImuMeasurement_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
-	capn_write32(p.p, 0, capn_from_f32(s->accelerometerXG));
-	capn_write32(p.p, 4, capn_from_f32(s->accelerometerYG));
-	capn_write32(p.p, 8, capn_from_f32(s->accelerometerZG));
-	capn_write32(p.p, 12, capn_from_f32(s->gyroscopeXRads));
-	capn_write32(p.p, 16, capn_from_f32(s->gyroscopeYRads));
-	capn_write32(p.p, 20, capn_from_f32(s->gyroscopeZRads));
-	capn_write32(p.p, 24, capn_from_f32(s->magnetometerXUt));
-	capn_write32(p.p, 28, capn_from_f32(s->magnetometerYUt));
-	capn_write32(p.p, 32, capn_from_f32(s->magnetometerZUt));
+	capn_write16(p.p, 0, (uint16_t) (s->accelerometerX));
+	capn_write16(p.p, 2, (uint16_t) (s->accelerometerY));
+	capn_write16(p.p, 4, (uint16_t) (s->accelerometerZ));
+	capn_write16(p.p, 6, (uint16_t) (s->gyroscopeX));
+	capn_write16(p.p, 8, (uint16_t) (s->gyroscopeY));
+	capn_write16(p.p, 10, (uint16_t) (s->gyroscopeZ));
+	capn_write16(p.p, 12, (uint16_t) (s->magnetometerX));
+	capn_write16(p.p, 14, (uint16_t) (s->magnetometerY));
+	capn_write16(p.p, 16, (uint16_t) (s->magnetometerZ));
 }
 void get_ImuMeasurement(struct ImuMeasurement *s, ImuMeasurement_list l, int i) {
 	ImuMeasurement_ptr p;
@@ -1382,4 +1385,37 @@ void set_Ping(const struct Ping *s, Ping_list l, int i) {
 	Ping_ptr p;
 	p.p = capn_getp(l.p, i, 0);
 	write_Ping(s, p);
+}
+
+Error_ptr new_Error(struct capn_segment *s) {
+	Error_ptr p;
+	p.p = capn_new_struct(s, 8, 1);
+	return p;
+}
+Error_list new_Error_list(struct capn_segment *s, int len) {
+	Error_list p;
+	p.p = capn_new_list(s, len, 8, 1);
+	return p;
+}
+void read_Error(struct Error *s capnp_unused, Error_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	s->type = (enum ErrorType)(int) capn_read16(p.p, 0);
+	s->string = capn_get_text(p.p, 0, capn_val0);
+}
+void write_Error(const struct Error *s capnp_unused, Error_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	capn_write16(p.p, 0, (uint16_t) (s->type));
+	capn_set_text(p.p, 0, s->string);
+}
+void get_Error(struct Error *s, Error_list l, int i) {
+	Error_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_Error(s, p);
+}
+void set_Error(const struct Error *s, Error_list l, int i) {
+	Error_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_Error(s, p);
 }

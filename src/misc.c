@@ -10,6 +10,7 @@
 #include "hardware.h"
 #include "durin.h"
 #include "esp_timer.h"
+#include "tof_and_expander.h"
 
 #define DEFAULT_VREF 1100 
 #define VOLT_LP_GAIN 0.9995
@@ -64,7 +65,6 @@ void init_misc() {
     // install gpio isr
     gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
 
-    durin.hw.port_expander_output = ~0;
     durin.info.motor_enabled = false;
     durin.info.user_enabled = false;
     esp_err_t err = nvs_flash_init();
@@ -187,7 +187,12 @@ void init_misc() {
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_BUZZER);
 
     //disable user port
-    durin.hw.port_expander_output &= ~((1 << EX_PIN_USER_EN));
+    write_expander_pin(EX_PIN_USER_EN, 0);
+    configure_expander_pin(EX_PIN_USER_EN, 0);
+
+    write_expander_pin(EX_PIN_SERVO_EN, 0);
+    configure_expander_pin(EX_PIN_SERVO_EN, 0);
+
     durin.info.last_message_received = esp_timer_get_time();
 
 
@@ -242,10 +247,12 @@ void update_misc(struct pt *pt) {
 
         if (released && current_time - last_action > 1000000) {
             // toggle motor and user en
-            durin.hw.port_expander_output ^= (1 << EX_PIN_USER_EN);
             durin.info.motor_enabled = !durin.info.motor_enabled;
+            durin.info.user_enabled = durin.info.motor_enabled;
+            write_expander_pin(EX_PIN_SERVO_EN, durin.info.motor_enabled);
+            write_expander_pin(EX_PIN_USER_EN, durin.info.motor_enabled);
             last_action = current_time;
-            if (durin.hw.port_expander_output & (1 << EX_PIN_USER_EN)) {
+            if (durin.info.motor_enabled) {
                 set_led(GREEN);
             } else {
                 set_led(YELLOW);
@@ -255,6 +262,7 @@ void update_misc(struct pt *pt) {
         if (pressed_for > 1000000) {
             //make the esp kill itself :(
             printf("i am dead goodbye! \n");
+            set_led(RED);
             vTaskDelay(100);
             power_off();
         }
@@ -271,9 +279,9 @@ void update_misc(struct pt *pt) {
             power_off();
         }
 
-        if (durin.telemetry.battery_voltage < 6.9) {
-            printf("no battery\n");
-            vTaskDelay(100);
+        if (durin.telemetry.battery_voltage < 6.7) {
+            // printf("no battery\n");
+            // vTaskDelay(100);
             // power_off();
         }
         PT_YIELD(pt);

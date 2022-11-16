@@ -100,7 +100,12 @@ def receive_msg():
     meta = 0xf000 & payload_len
     payload_len = 0x0fff & payload_len
     payload = receive_raw(payload_len)
-    checksum = receive_raw(1)
+    checksum = receive_raw(1)[0]
+    calculated_checksum = ord("*") ^ header2[0] ^ header2[1]
+    for v in payload:
+        calculated_checksum ^= v
+    if calculated_checksum != checksum:
+        print(f"invalid checksum. calculated: {calculated_checksum} received: {checksum}")
     if (len(payload) != payload_len):
         print("got the wrong length", len(payload), payload_len)
     try:
@@ -262,6 +267,12 @@ def stream_wifi_thread():
     while True:
         buf = udp_server.recv(2048)
         base = schema.DurinBase.from_bytes_packed(buf[3:])
+        print(len(buf))
+        checksum = 0
+        for v in buf[:-1]:
+            checksum ^= v
+        if checksum != buf[-1]:
+            print(f"invalid checksum. calculated:{checksum} got: {buf[-1]}")
         print(base)
 
 def get_ip():
@@ -279,10 +290,13 @@ def get_ip():
 if args.stream:
     print("enabling stream")
     msg = schema.DurinBase.new_message()
-    msg.init("setTofStreamPeriod").periodMs = schema.streamPeriodMax
+    msg.init("setTofStreamPeriod").periodMs = 1000
     send_msg(msg)
     msg = schema.DurinBase.new_message()
     msg.init("setTofResolution").resolution = schema.TofResolutions.resolution4x4rate60Hz
+    send_msg(msg)
+    msg = schema.DurinBase.new_message()
+    msg.init("setImuStreamPeriod").periodMs = 1000
     send_msg(msg)
     msg = schema.DurinBase.new_message()
     msg.init("enableStreaming")

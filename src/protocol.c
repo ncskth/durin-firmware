@@ -70,7 +70,7 @@ void finish_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase
     DurinBase_ptr durin_ptr = new_DurinBase(*cs);
     write_DurinBase(msg, durin_ptr);
     int e = capn_setp(capn_root(c), 0, durin_ptr.p);          
-    len = capn_write_mem(c, buf, *len, CAPN_PACKED);
+    *len = capn_write_mem(c, buf, *len, CAPN_PACKED);
     capn_free(c);
 }
 
@@ -382,18 +382,18 @@ void handle_setBuzzer(SetBuzzer_ptr msg, struct DurinBase *response, struct capn
 }
 
 void handle_getImuMeasurement(GetImuMeasurement_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
-    struct ImuMeasurement imu;
-    imu.accelerometerXG = durin.telemetry.ax;
-    imu.accelerometerYG = durin.telemetry.ay;
-    imu.accelerometerZG = durin.telemetry.az;
-    imu.gyroscopeXRads = durin.telemetry.gx;
-    imu.gyroscopeYRads = durin.telemetry.gy;
-    imu.gyroscopeZRads = durin.telemetry.gz;
-    imu.magnetometerXUt = durin.telemetry.mx;
-    imu.magnetometerYUt = durin.telemetry.my;
-    imu.magnetometerZUt = durin.telemetry.mz;
+    struct ImuMeasurement data;
+    data.accelerometerX = durin.telemetry.raw_ax;
+    data.accelerometerY = durin.telemetry.raw_ay;
+    data.accelerometerZ = durin.telemetry.raw_az;
+    data.gyroscopeX = durin.telemetry.raw_gx;
+    data.gyroscopeY = durin.telemetry.raw_gy;
+    data.gyroscopeZ = durin.telemetry.raw_gz;
+    data.magnetometerX = durin.telemetry.raw_mx;
+    data.magnetometerY = durin.telemetry.raw_my;
+    data.magnetometerZ = durin.telemetry.raw_mz;
     response->imuMeasurement = new_ImuMeasurement(cs);
-    write_ImuMeasurement(&imu, response->imuMeasurement);
+    write_ImuMeasurement(&data, response->imuMeasurement);
     response->which = DurinBase_imuMeasurement;
 }
 

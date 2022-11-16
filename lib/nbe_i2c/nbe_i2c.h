@@ -11,7 +11,13 @@ extern "C" {
 
 enum nbe_i2c_error {
     NBE_I2C_ARBITRATION_LOST,
-    NBE_I2C_TIME_OUT
+    NBE_I2C_TIMEOUT
+};
+
+enum nbe_i2c_register {
+    NBE_I2C_REGISTER_8,
+    NBE_I2C_REGISTER_LE16,
+    NBE_I2C_REGISTER_BE16,
 };
 
 typedef struct nbe_i2c {
@@ -44,13 +50,16 @@ void nbe_i2c_init(nbe_i2c_t *nbe_i2c, uint8_t i2c_num, gpio_num_t sda, gpio_num_
 void nbe_i2c_set_rx_buf(nbe_i2c_t *nbe_i2c, uint8_t *buf);
 void nbe_i2c_set_tx_buf(nbe_i2c_t *nbe_i2c, uint8_t *buf);
 
+void nbe_i2c_full_register_read(nbe_i2c_t *nbe_i2c, uint8_t address, uint16_t reg, enum nbe_i2c_register type, uint8_t *buf, uint8_t len);
+void nbe_i2c_full_register_write(nbe_i2c_t *nbe_i2c, uint8_t address, uint16_t reg, enum nbe_i2c_register type, uint8_t *buf, uint8_t len);
+
 void nbe_i2c_start(nbe_i2c_t *nbe_i2c);
 void nbe_i2c_start_read(nbe_i2c_t *nbe_i2c, uint8_t address, uint8_t *tx_buf, uint8_t *rx_buf);
 void nbe_i2c_start_write(nbe_i2c_t *nbe_i2c, uint8_t address, uint8_t *tx_buf, uint8_t *rx_buf);
 
 void nbe_i2c_write_preamble(nbe_i2c_t *nbe_i2c, uint8_t *buf, uint8_t len); //max 32 bytes IN TOTAL
 
-void nbe_i2c_write(nbe_i2c_t *nbe_i2c, uint8_t amount); // the library doesn't support a write after a read (maybe) :(
+void nbe_i2c_write(nbe_i2c_t *nbe_i2c, uint8_t amount);
 void nbe_i2c_read(nbe_i2c_t *nbe_i2c, uint8_t amount);
 void nbe_i2c_read_nak(nbe_i2c_t *nbe_i2c, uint8_t amount);
 void nbe_i2c_read_ack(nbe_i2c_t *nbe_i2c, uint8_t amount);

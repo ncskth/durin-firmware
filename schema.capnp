@@ -3,7 +3,7 @@
 
 #durin has 2Mbaud UART port and a TCP socket on port 1337
 
-const streamPeriodMax :UInt16= 65535;
+const streamPeriodMax :UInt16 = 65535;
 const streamPeriodMin :UInt16 = 0;
 const durinTcpPort :UInt16 = 1337;
 const durinBaud :UInt32 = 2000000;
@@ -184,19 +184,20 @@ struct GetImuMeasurement {
 }
 
 # an imu measurement
-# acceleration in Gs
-# rotationals velocity in rad/s
-# magnetfield in microTesla
+# raw values. Use the scaling factors to get metric
+const accelerometerToGs :Float32 = 1;
+const gyroscopeToRadiansPerSecond :Float32 = 1;
+const magnetometerToMicroTesla :Float32 = 1;
 struct ImuMeasurement {
-    accelerometerXG @0 :Float32;
-    accelerometerYG @1 :Float32;
-    accelerometerZG @2 :Float32;
-    gyroscopeXRads @3 :Float32;
-    gyroscopeYRads @4 :Float32;
-    gyroscopeZRads @5 :Float32;
-    magnetometerXUt @6 :Float32;
-    magnetometerYUt @7 :Float32;
-    magnetometerZUt @8 :Float32;
+    accelerometerX @0 :Int16;
+    accelerometerY @1 :Int16;
+    accelerometerZ @2 :Int16;
+    gyroscopeX @3 :Int16;
+    gyroscopeY @4 :Int16;
+    gyroscopeZ @5 :Int16;
+    magnetometerX @6 :Int16;
+    magnetometerY @7 :Int16;
+    magnetometerZ @8 :Int16;
 }
 
 
