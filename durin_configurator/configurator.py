@@ -226,7 +226,7 @@ if args.wifi:
     send_msg(msg)
     wait_ack()
 
-if args.id:
+if args.id != None:
     print("updating node id")
     msg = schema.DurinBase.new_message()
     msg.init("setNodeId")

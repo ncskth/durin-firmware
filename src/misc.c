@@ -190,7 +190,7 @@ void init_misc() {
     write_expander_pin(EX_PIN_USER_EN, 0);
     configure_expander_pin(EX_PIN_USER_EN, 0);
 
-    write_expander_pin(EX_PIN_SERVO_EN, 0);
+    write_expander_pin(EX_PIN_SERVO_EN, 1);
     configure_expander_pin(EX_PIN_SERVO_EN, 0);
 
     durin.info.last_message_received = esp_timer_get_time();
@@ -250,8 +250,7 @@ void update_misc(struct pt *pt) {
             // toggle motor and user en
             durin.info.motor_enabled = !durin.info.motor_enabled;
             durin.info.user_enabled = durin.info.motor_enabled;
-            write_expander_pin(EX_PIN_SERVO_EN, durin.info.motor_enabled);
-            write_expander_pin(EX_PIN_USER_EN, durin.info.motor_enabled);
+            write_expander_pin(EX_PIN_USER_EN, durin.info.user_enabled);
             last_action = current_time;
             if (durin.info.motor_enabled) {
                 set_led(GREEN);
