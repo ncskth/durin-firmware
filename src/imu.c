@@ -9,9 +9,9 @@ icm20948_t icm;
 void init_imu() {
     float ax, ay, az, gx, gy, gz, mx, my, mz;
     icm20948_init(&icm, &durin.hw.i2c_imu, 0x68);
-    vTaskDelay(50);
+    vTaskDelay(10);
     icm20948_init(&icm, &durin.hw.i2c_imu, 0x68);
-    vTaskDelay(50);
+    vTaskDelay(10);
     icm20948_configAccel(&icm, ICM20948_ACCEL_RANGE_4G, ICM20948_ACCEL_DLPF_BANDWIDTH_473HZ);
     icm20948_configGyro(&icm, ICM20948_GYRO_RANGE_500DPS, ICM20948_GYRO_DLPF_BANDWIDTH_361HZ);
     icm20948_setAccelSrd(&icm, 1);

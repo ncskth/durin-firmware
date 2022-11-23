@@ -47,8 +47,7 @@ void init_servo() {
     durin.control.setWheelVelocity.wheelFrontRightMms = 0;
 
     dx_init(&dx, UART_SERVO);
-    dx_ping(&dx, SERVO1);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    // dx_ping(&dx, SERVO1);
     for (uint8_t i = 0; i < 4; i++) {
         dx_set_status_return_level(&dx, servos[i], DX_PING);
         vTaskDelay(1);
@@ -81,6 +80,10 @@ void update_servo(struct pt *pt) {
 
         if (lerp_factor == 0.0 || !durin.info.motor_enabled) {
             durin.control.control_type = DurinBase_setWheelVelocity;
+            durin.control.setWheelVelocity.wheelBackLeftMms = 0;
+            durin.control.setWheelVelocity.wheelFrontLeftMms = 0;
+            durin.control.setWheelVelocity.wheelBackRightMms = 0;
+            durin.control.setWheelVelocity.wheelBackLeftMms = 0;
             speed1 = 0;
             speed2 = 0;
             speed3 = 0;

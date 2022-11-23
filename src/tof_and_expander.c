@@ -37,35 +37,23 @@ void init_tof_and_expander() {
     for (uint8_t i = 0; i < 8; i++) {
         configure_expander_pin(i, 0);
     }
-    vTaskDelay(1000);
-    for (uint8_t i = 0; i < 8; i++) {
-        write_expander_pin(i, 1);
-    }
-    vTaskDelay(1000);
     for (uint8_t i = 0; i < 8; i++) {
         write_expander_pin(i, 0);
     }
-    vTaskDelay(1000);
-    for (uint8_t i = 0; i < 8; i++) {
-        write_expander_pin(i, 1);
-    }
-    vTaskDelay(1000);
+
     VL53L5CX_Platform platform;
     platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
     platform.nbe_i2c = &durin.hw.i2c_tof;
     tof_sensors[0].platform = platform;
-    uint8_t alive;
-    vl53l5cx_is_alive(&tof_sensors[0], &alive);
-    //sensor should be dead now
-    if (alive) {
-        printf("TOF sensor alive while reset. broken port expander?\n");
-        return; // abort if we heave a dead sensor
+    vl53l5cx_init(&tof_sensors[0]); //init all of them
+    //reset all of them
+    for (uint8_t i = 0; i < 8; i++) {
+        write_expander_pin(i, 1);
     }
 
     for (uint8_t i = 0 ; i < NUM_VL53L5CX; i++) {
         //unreset sensor
         write_expander_pin(i, 0);
-
         VL53L5CX_Platform platform;
         platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
         platform.nbe_i2c = &durin.hw.i2c_tof;
@@ -79,7 +67,6 @@ void init_tof_and_expander() {
         }
         printf("starting TOF %d\n", i);
         durin.info.tof_sensor_alive[i] = 1;
-        vl53l5cx_init(&tof_sensors[i]);
         vl53l5cx_set_ranging_mode(&tof_sensors[i], VL53L5CX_RANGING_MODE_CONTINUOUS);
         vl53l5cx_set_ranging_frequency_hz(&tof_sensors[i], 15);
         vl53l5cx_set_resolution(&tof_sensors[i], VL53L5CX_RESOLUTION_8X8);

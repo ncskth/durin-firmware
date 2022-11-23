@@ -134,10 +134,6 @@ void setup(void* arg) {
 
     // init_i2c(NULL);
 
-    // servo
-    printf("init servo\n");
-    init_servo();
-
     // init TOF
     printf("init tof\n");
     init_tof_and_expander();
@@ -145,6 +141,10 @@ void setup(void* arg) {
     // wifi
     printf("init wifi\n");
     init_wifi();
+
+    // servo
+    printf("init servo\n");
+    init_servo();
 
     printf("init imu\n");
     init_imu();
