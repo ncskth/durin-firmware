@@ -1137,12 +1137,12 @@ void set_Position(const struct Position *s, Position_list l, int i) {
 
 SetWifiConfig_ptr new_SetWifiConfig(struct capn_segment *s) {
 	SetWifiConfig_ptr p;
-	p.p = capn_new_struct(s, 0, 2);
+	p.p = capn_new_struct(s, 8, 2);
 	return p;
 }
 SetWifiConfig_list new_SetWifiConfig_list(struct capn_segment *s, int len) {
 	SetWifiConfig_list p;
-	p.p = capn_new_list(s, len, 0, 2);
+	p.p = capn_new_list(s, len, 8, 2);
 	return p;
 }
 void read_SetWifiConfig(struct SetWifiConfig *s capnp_unused, SetWifiConfig_ptr p) {
@@ -1150,12 +1150,14 @@ void read_SetWifiConfig(struct SetWifiConfig *s capnp_unused, SetWifiConfig_ptr 
 	capnp_use(s);
 	s->ssid = capn_get_text(p.p, 0, capn_val0);
 	s->password = capn_get_text(p.p, 1, capn_val0);
+	s->index = capn_read8(p.p, 0);
 }
 void write_SetWifiConfig(const struct SetWifiConfig *s capnp_unused, SetWifiConfig_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
 	capn_set_text(p.p, 0, s->ssid);
 	capn_set_text(p.p, 1, s->password);
+	capn_write8(p.p, 0, s->index);
 }
 void get_SetWifiConfig(struct SetWifiConfig *s, SetWifiConfig_list l, int i) {
 	SetWifiConfig_ptr p;

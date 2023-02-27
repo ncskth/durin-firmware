@@ -635,13 +635,14 @@ static const size_t Position_struct_bytes_count = 16;
 struct SetWifiConfig {
 	capn_text ssid;
 	capn_text password;
+	uint8_t index;
 };
 
-static const size_t SetWifiConfig_word_count = 0;
+static const size_t SetWifiConfig_word_count = 1;
 
 static const size_t SetWifiConfig_pointer_count = 2;
 
-static const size_t SetWifiConfig_struct_bytes_count = 16;
+static const size_t SetWifiConfig_struct_bytes_count = 24;
 
 
 struct SetNodeId {
