@@ -70,7 +70,7 @@ void update_servo(struct pt *pt) {
         static float lerp_factor;
         const float lerp_start = 0.5;
         const float lerp_end = 1.5;
-        
+
         float current_time = (esp_timer_get_time() - durin.info.last_message_received) / 1000000.0 - lerp_start;
         float k = 1.0 / (lerp_end - lerp_start);
         lerp_factor = 1.0 - k * current_time;
@@ -95,7 +95,7 @@ void update_servo(struct pt *pt) {
             float magnitude = sqrtf(x*x + y*y);
             float speed14 = sinf(angle + PI / 4) * magnitude * MMS_TO_RPM * 2; // multiply by two because the vector is cut in half???
             float speed23 = sinf(angle - PI / 4) * magnitude * MMS_TO_RPM * 2;
-            
+
             float robot_circumference = ROBOT_RADIUS_MM * 2 * PI;
 
             // divide by 4 and it becomes perfect for some reason
@@ -125,7 +125,7 @@ void update_servo(struct pt *pt) {
             speed3 = durin.control.setWheelVelocity.wheelFrontLeftMms * MMS_TO_RPM;
             speed4 = durin.control.setWheelVelocity.wheelFrontRightMms * MMS_TO_RPM;
         }
-        printf("speed %f %f %f %f\n", speed1, speed2,speed3,speed4);
+        // printf("speed %f %f %f %f\n", speed1, speed2,speed3,speed4);
 
         dx_set_goal_velocity(&dx, SERVO1, speed1 * lerp_factor, 1);
         PT_YIELD(pt);

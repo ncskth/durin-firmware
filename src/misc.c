@@ -270,7 +270,7 @@ void update_misc(struct pt *pt) {
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
         float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
         new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
-        printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
+        // printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
 
         if (power_off_when && esp_timer_get_time() > power_off_when) {

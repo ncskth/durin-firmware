@@ -233,7 +233,7 @@ if args.id != None:
     msg.setNodeId.nodeId = args.id
     send_msg(msg)
     wait_ack()
-    
+
 if args.read_logs:
     print("enabling logging")
     msg = schema.DurinBase.new_message()
@@ -289,22 +289,23 @@ def get_ip():
 
 if args.stream:
     print("enabling stream")
-    msg = schema.DurinBase.new_message()
-    msg.init("setTofStreamPeriod").periodMs = 1000
-    send_msg(msg)
-    msg = schema.DurinBase.new_message()
-    msg.init("setTofResolution").resolution = schema.TofResolutions.resolution4x4rate60Hz
-    send_msg(msg)
-    msg = schema.DurinBase.new_message()
-    msg.init("setImuStreamPeriod").periodMs = 1000
-    send_msg(msg)
+    # msg = schema.DurinBase.new_message()
+    # msg.init("setTofStreamPeriod").periodMs = 1
+    # send_msg(msg)
+    # msg = schema.DurinBase.new_message()
+    # # msg.init("setTofResolution").resolution = schema.TofResolutions.resolution8x8rate15Hz
+    # msg.init("setTofResolution").resolution = schema.TofResolutions.resolution4x4rate60Hz
+    # # send_msg(msg)
+    # msg = schema.DurinBase.new_message()
+    # msg.init("setImuStreamPeriod").periodMs = 1000
+    # send_msg(msg)
     msg = schema.DurinBase.new_message()
     msg.init("enableStreaming")
     if args.type == "uart":
         msg.enableStreaming.destination.uartOnly = None
         t = Thread(target=stream_uart_thread)
     if args.type == "wifi":
-        msg.enableStreaming.destination.init("udpOnly") 
+        msg.enableStreaming.destination.init("udpOnly")
         msg.enableStreaming.destination.udpOnly.ip = get_ip()
         msg.enableStreaming.destination.udpOnly.port = 1336
         t = Thread(target=stream_wifi_thread)
@@ -384,7 +385,7 @@ if success and args.verify:
 
 if args.spam:
     print("IT'S A PARTY")
-    
+
     r = 0
     g = 0
     b = 0

@@ -168,7 +168,7 @@ void setup(void* arg) {
     } else {
         set_led(RED);
     }
-    
+
     durin.info.init_finished = 1;
     printf("init done\n");
     printf("version 11\n");
@@ -180,7 +180,7 @@ void setup(void* arg) {
 
 void app_main() {
     durin.info.logging_enabled = EnableLogging_disabled;
-    
+
     init_user_uart();
 
     #ifdef USER_UART_ENABLED
@@ -224,7 +224,7 @@ int IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     in_writefn = 1;
     struct capn c;
     capn_init_malloc(&c);
-    struct capn_segment *cs = capn_root(&c).seg;    
+    struct capn_segment *cs = capn_root(&c).seg;
     struct DurinBase msg;
     struct TextLogging log;
     ((char*) data)[size] = '\0';
@@ -242,7 +242,7 @@ int IRAM_ATTR durin_writefn(void* cookie, const char* data, int size) {
     DurinBase_ptr durin_ptr = new_DurinBase(cs);
     write_TextLogging(&log, msg.textLogging);
     write_DurinBase(&msg, durin_ptr);
-    e = capn_setp(capn_root(&c), 0, durin_ptr.p);              
+    e = capn_setp(capn_root(&c), 0, durin_ptr.p);
     len = capn_write_mem(&c, buf, size + 100, CAPN_PACKED);
 
     if (durin.info.logging_enabled == EnableLogging_uart) {

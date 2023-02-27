@@ -36,19 +36,19 @@ void set_tof_resolution(enum TofResolutions resolution) {
 void init_tof_and_expander() {
     for (uint8_t i = 0; i < 8; i++) {
         configure_expander_pin(i, 0);
-    }
-    for (uint8_t i = 0; i < 8; i++) {
-        write_expander_pin(i, 0);
+        write_expander_pin(i, 1);
     }
 
     VL53L5CX_Platform platform;
     platform.address = VL53L5CX_DEFAULT_I2C_ADDRESS;
     platform.nbe_i2c = &durin.hw.i2c_tof;
     tof_sensors[0].platform = platform;
-    vl53l5cx_init(&tof_sensors[0]); //init all of them
-    //reset all of them
-    for (uint8_t i = 0; i < 8; i++) {
-        write_expander_pin(i, 1);
+    uint8_t alive;
+    vl53l5cx_is_alive(&tof_sensors[0], &alive);
+    //sensor should be dead now
+    if (alive) {
+        printf("TOF sensor alive while reset. broken port expander?\n");
+        return; // abort if we heave a dead sensor
     }
 
     for (uint8_t i = 0 ; i < NUM_VL53L5CX; i++) {
@@ -67,6 +67,7 @@ void init_tof_and_expander() {
         }
         printf("starting TOF %d\n", i);
         durin.info.tof_sensor_alive[i] = 1;
+        vl53l5cx_init(&tof_sensors[i]);
         vl53l5cx_set_ranging_mode(&tof_sensors[i], VL53L5CX_RANGING_MODE_CONTINUOUS);
         vl53l5cx_set_ranging_frequency_hz(&tof_sensors[i], 15);
         vl53l5cx_set_resolution(&tof_sensors[i], VL53L5CX_RESOLUTION_8X8);
@@ -111,7 +112,7 @@ void build_tof_message(TofObservations_ptr *ptr, struct capn_segment *cs, uint8_
 
 void send_tof_telemetry(uint8_t *to_send) {
     struct capn c;
-    struct capn_segment *cs;    
+    struct capn_segment *cs;
     struct DurinBase msg;
     init_durinbase(&c, &cs, &msg);
     build_tof_message(&msg.tofObservations, cs, to_send);
@@ -135,6 +136,7 @@ void update_tof_and_expander(struct pt *pt) {
     static bool tof_enabled = true;
     static uint8_t tof_update_rate = 15;
     static uint8_t img_size = 8;
+    wanted_tof_resolution = durin.info.tof_resolution;
     last_tof_update = esp_timer_get_time();
     while (1) {
         PT_YIELD(pt);
@@ -180,7 +182,7 @@ void update_tof_and_expander(struct pt *pt) {
                     vl53l5cx_set_resolution(&tof_sensors[tof_index], VL53L5CX_RESOLUTION_8X8);
                     vl53l5cx_set_ranging_frequency_hz(&tof_sensors[tof_index], 15);
                 } else
-                if (durin.info.tof_resolution == TofResolutions_resolution4x4rate60Hz) {                    
+                if (durin.info.tof_resolution == TofResolutions_resolution4x4rate60Hz) {
                     vl53l5cx_set_resolution(&tof_sensors[tof_index], VL53L5CX_RESOLUTION_4X4);
                     vl53l5cx_set_ranging_frequency_hz(&tof_sensors[tof_index], 60);
                 }
@@ -225,7 +227,7 @@ void update_tof_and_expander(struct pt *pt) {
                         case 0: // not updated
                             status_bits = 0b11;
                             break;
-                        case 5: // valid 
+                        case 5: // valid
                             status_bits = 0b00;
                             break;
                         case 6:
@@ -288,7 +290,7 @@ bool write_expander_pin(uint8_t pin, bool value) {
 bool read_expander_pin(uint8_t pin) {
     if (!durin.info.init_finished) {
         printf("read %d\n", expander_wanted_configuration);
-        nbe_i2c_full_register_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 0, NBE_I2C_REGISTER_8, &expander_current_input, 2);   
+        nbe_i2c_full_register_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 0, NBE_I2C_REGISTER_8, &expander_current_input, 2);
         while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
     }
     return expander_current_input & (1 << pin);

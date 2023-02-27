@@ -69,7 +69,7 @@ void init_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase *
 void finish_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase *msg, uint8_t *buf, uint16_t* len) {
     DurinBase_ptr durin_ptr = new_DurinBase(*cs);
     write_DurinBase(msg, durin_ptr);
-    int e = capn_setp(capn_root(c), 0, durin_ptr.p);          
+    int e = capn_setp(capn_root(c), 0, durin_ptr.p);
     *len = capn_write_mem(c, buf, *len, CAPN_PACKED);
     capn_free(c);
 }
@@ -131,7 +131,7 @@ void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
 
         case 1:
             state->expected_len = byte;
-            state->state = 2;   
+            state->state = 2;
             break;
 
         case 2:
@@ -155,7 +155,7 @@ void protocol_parse_byte(struct protocol_state *state, uint8_t byte) {
                 state->state = 4;
             }
             break;
-        
+
         case 4:
             checksum = HEADER_BYTE;
             checksum ^= (state->current_len >> 8) & 0xff;
@@ -180,29 +180,29 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
     struct DurinBase base;
     rroot.p = capn_getp(capn_root(&read_c), 0 /* off */, 1 /* resolve */);
     read_DurinBase(&base, rroot);
- 
+
     struct capn response_c;
     capn_init_malloc(&response_c);
-    struct capn_segment *cs = capn_root(&response_c).seg;    
+    struct capn_segment *cs = capn_root(&response_c).seg;
     struct DurinBase durin_response;
     printf("decoding message %d from %d\n", base.which, where);
     switch (base.which) {
         case DurinBase_enableStreaming:
             handle_enableStreaming(base.enableStreaming, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_disableStreaming:
             handle_disableStreaming(base.disableStreaming, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_powerOff:
             handle_powerOff(base.powerOff, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setRobotVelocity:
             handle_setRobotVelocity(base.setRobotVelocity, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setWheelVelocity:
             handle_setWheelVelocity(base.setWheelVelocity, &durin_response, cs, where);
             break;
@@ -238,7 +238,7 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
         case DurinBase_getTofObservations:
             handle_getTofObservations(base.getTofObservations, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setImuStreamPeriod:
             handle_setImuStreamPeriod(base.setImuStreamPeriod, &durin_response, cs, where);
             break;
@@ -246,11 +246,11 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
         case DurinBase_setPositionStreamPeriod:
             handle_setPositionStreamPeriod(base.setPositionStreamPeriod, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setSystemStatusStreamPeriod:
             handle_setSystemStatusStreamPeriod(base.setSystemStatusStreamPeriod, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setTofStreamPeriod:
             handle_setTofStreamPeriod(base.setTofStreamPeriod, &durin_response, cs, where);
             break;
@@ -258,15 +258,15 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
         case DurinBase_otaUpdateBegin:
             handle_otaUpdateBegin(base.otaUpdateBegin, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_enableLogging:
             handle_enableLogging(base.enableLogging, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setWifiConfig:
             handle_setWifiConfig(base.setWifiConfig, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_setNodeId:
             handle_setNodeId(base.setNodeId, &durin_response, cs, where);
             break;
@@ -274,7 +274,7 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
         case DurinBase_setTofResolution:
             handle_setTofResolution(base.setTofResolution, &durin_response, cs, where);
             break;
-        
+
         case DurinBase_ping:
             handle_ping(base.ping, &durin_response, cs, where);
             break;
@@ -311,7 +311,7 @@ void handle_enableStreaming(EnableStreaming_ptr msg, struct DurinBase *response,
     read_EnableStreaming(&data, msg);
     durin.info.telemetry_destination = data.destination_which;
     durin.info.streaming_enabled = true;
-    
+
     if (data.destination_which == EnableStreaming_destination_udpOnly && channel == CHANNEL_TCP) {
         if (capn_len(data.destination.udpOnly.ip) != 4) {
             fast_reject(response, cs);
@@ -350,7 +350,7 @@ void handle_disableStreaming(DisableStreaming_ptr msg, struct DurinBase *respons
 
 void handle_powerOff(PowerOff_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
     printf("power off command goodbye!\n");
-    fast_acknowledge(response, cs);    
+    fast_acknowledge(response, cs);
     vTaskDelay(100);
     power_off();
 }
@@ -416,7 +416,7 @@ void handle_getPosition(GetPosition_ptr msg, struct DurinBase *response, struct 
 void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
     struct SystemStatus status;
     status.batteryMv = durin.telemetry.battery_voltage * 1000;
-    status.batteryPercent = 0; //TODO: 
+    status.batteryPercent = 0; //TODO:
 
     response->systemStatus = new_SystemStatus(cs);
     write_SystemStatus(&status, response->systemStatus);
@@ -519,7 +519,7 @@ void handle_otaUdateCommit(OtaUpdateCommit_ptr msg, struct DurinBase *response, 
             printf("confirmation not needed\n");
             fast_reject(response, cs);
         }
-    } 
+    }
 }
 
 void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
