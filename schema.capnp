@@ -17,19 +17,19 @@ struct DurinBase {
         acknowledge @1 :Acknowledge;
         ping @31 :Ping;
         powerOff @2 :PowerOff;
-        setRobotVelocity @3 :SetRobotVelocity; 
+        setRobotVelocity @3 :SetRobotVelocity;
         setWheelVelocity @4 :SetWheelVelocity;
         setBuzzer @5 :SetBuzzer;
         setLed @6 :SetLed;
-        
+
         enableStreaming @7 :EnableStreaming;
         disableStreaming @8 :DisableStreaming;
-        
+
         setTofStreamPeriod @9 :SetTofStreamPeriod;
         getTofObservations @10 :GetTofObservations;
         setTofResolution @11 :SetTofResolution;
         tofObservations @12 :TofObservations;
-        
+
         setImuStreamPeriod @13 :SetImuStreamPeriod;
         getImuMeasurement @14 :GetImuMeasurement;
         imuMeasurement @15 :ImuMeasurement;
@@ -74,7 +74,7 @@ struct PowerOff {
 
 }
 
-# Sets the velocity of durin, positive Y is forward, rotation is counterclockwise 
+# Sets the velocity of durin, positive Y is forward, rotation is counterclockwise
 # velocity in millimeters/second
 # rotaional velocity in degrees/s
 struct SetRobotVelocity {
@@ -130,7 +130,7 @@ struct DisableStreaming {
 
 ### TOF measurements
 
-# Sets the rate at which data will be streamed. The period is in MS 
+# Sets the rate at which data will be streamed. The period is in MS
 # Set to STREAM_PERIOD_MAX (65535) to not stream any data
 # Set to STREAM_PERIOD_MIN (0) to only stream new values at the rate they are sampled by durin
 # any other value will send the data at that period even if means sending stale data
@@ -147,17 +147,17 @@ struct GetTofObservations {
 enum TofResolutions {
     resolution4x4rate60Hz @0;
     resolution8x8rate15Hz @1;
-} 
+}
 struct SetTofResolution {
     resolution @0 :TofResolutions;
 }
 
 # A list with TOF observations
 # Durin has 8 ToF sensors each spanning 45° degrees.
-# The ID tells the angle ccw from the front of according to the formula id*45°. So id 0 faces forward, 2 left and 6 right 
+# The ID tells the angle ccw from the front of according to the formula id*45°. So id 0 faces forward, 2 left and 6 right
 # The ranging measurements come in a list of distances in row-major order
 # bits 0:14 contain the distance in mm
-# bits 15:16 contain an enum specifying the state 
+# bits 15:16 contain an enum specifying the state
 ## 0 - valid
 ## 1 - 50% valid
 ## 2 - invalid
@@ -170,7 +170,7 @@ struct TofObservations {
     }
 }
 
-# Sets the rate at which data will be streamed. The period is in MS 
+# Sets the rate at which data will be streamed. The period is in MS
 # Set to STREAM_PERIOD_MAX (65535) to not stream any data
 # Set to STREAM_PERIOD_MIN (0) to only stream new values at the rate they are sampled by durin
 # any other value will send the data at that period even if means sending stale data
@@ -203,7 +203,7 @@ struct ImuMeasurement {
 
 ### system status
 
-# Sets the rate at which data will be streamed. The period is in MS 
+# Sets the rate at which data will be streamed. The period is in MS
 # Set to STREAM_PERIOD_MAX (65535) to not stream any data
 # Set to STREAM_PERIOD_MIN (0) to only stream new values at the rate they are sampled by durin
 # any other value will send the data at that period even if means sending stale data
@@ -226,7 +226,7 @@ struct SystemStatus {
 
 # polls one node over UWB
 struct GetDistanceMeasurement {
-    nodeId @0 :UInt8;   
+    nodeId @0 :UInt8;
 }
 
 struct DistanceMeasurement {
@@ -242,7 +242,7 @@ struct DistanceMeasurement {
     }
 }
 
-# Sets the rate at which data will be streamed. The period is in MS 
+# Sets the rate at which data will be streamed. The period is in MS
 # Set to STREAM_PERIOD_MAX (65535) to not stream any data
 # Set to STREAM_PERIOD_MIN (0) to only stream new values at the rate they are sampled by durin
 # any other value will send the data at that period even if means sending stale data
@@ -252,7 +252,7 @@ struct SetPositionStreamPeriod {
 
 # gets the position as caluclated from UWB beacons, responds over the same channel as the request was sent (UART or TCP)
 struct GetPosition {
-   
+
 }
 
 enum UwbNodePurpose {
@@ -309,6 +309,7 @@ struct Position {
 struct SetWifiConfig {
     ssid @0 :Text;
     password @1 :Text;
+    index @2 :UInt8;
 }
 
 struct SetNodeId {

@@ -12,7 +12,7 @@
 #include "esp_timer.h"
 #include "tof_and_expander.h"
 
-#define DEFAULT_VREF 1100 
+#define DEFAULT_VREF 1100
 #define VOLT_LP_GAIN 0.9995
 
 #define AMP
@@ -33,7 +33,10 @@ nvs_handle_t durin_nvs;
 static uint64_t power_off_when = 0;
 
 void update_persistent_data() {
-    nvs_set_blob(durin_nvs, "durin_nvs", &durin_persistent, sizeof(durin_persistent));
+    int err = nvs_set_blob(durin_nvs, "durin_nvs", &durin_persistent, sizeof(durin_persistent));
+    if (err != ESP_OK) {
+        printf("nvs_set_blob failed with code %d", err);
+    }
 }
 
 void power_off() {
@@ -53,7 +56,7 @@ void set_led(uint8_t r, uint8_t g, uint8_t b) {
 
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_R);
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_G);
-    ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_B);   
+    ledc_update_duty(LED_SPEED_MODE, CHANNEL_LED_B);
 }
 
 void set_buzzer(uint8_t intensity) {
@@ -75,11 +78,9 @@ void init_misc() {
         err = nvs_flash_init();
     }
     err = nvs_open("storage", NVS_READWRITE, &durin_nvs);
-    uint len = 255;
+    uint len = sizeof(durin_persistent);
     err = nvs_get_blob(durin_nvs, "durin_nvs", &durin_persistent, &len);
     if (err == ESP_ERR_NVS_NOT_FOUND) {
-        memcpy(durin_persistent.main_ssid, DEFAULT_SSID, sizeof(DEFAULT_SSID));
-        memcpy(durin_persistent.main_password, DEFAULT_PASSWORD, sizeof(DEFAULT_PASSWORD));
         durin_persistent.node_id = 255;
         update_persistent_data();
     }
@@ -129,7 +130,7 @@ void init_misc() {
         .freq_hz = BUZZER_FREQ,
         .clk_cfg = LEDC_AUTO_CLK
     };
-    
+
     ledc_channel_config_t led_channel_conf_r = {
         .speed_mode = LED_SPEED_MODE,
         .channel = CHANNEL_LED_R,

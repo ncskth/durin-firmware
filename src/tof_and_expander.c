@@ -264,7 +264,6 @@ bool configure_expander_pin(uint8_t pin, bool is_input) {
         expander_wanted_configuration &= ~(1 << pin);
     }
     if (!durin.info.init_finished) {
-        printf("configured %d\n", expander_wanted_configuration);
         nbe_i2c_full_register_write(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 6, NBE_I2C_REGISTER_8, &expander_wanted_configuration, 2);
         while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
         expander_current_configuration = expander_wanted_configuration;
@@ -279,7 +278,6 @@ bool write_expander_pin(uint8_t pin, bool value) {
         expander_wanted_output &= ~(1 << pin);
     }
     if (!durin.info.init_finished) {
-        printf("wrote %d\n", expander_wanted_output);
         nbe_i2c_full_register_write(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 2, NBE_I2C_REGISTER_8, &expander_wanted_output, 2);
         while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
         expander_current_output = expander_wanted_output;
@@ -289,7 +287,6 @@ bool write_expander_pin(uint8_t pin, bool value) {
 
 bool read_expander_pin(uint8_t pin) {
     if (!durin.info.init_finished) {
-        printf("read %d\n", expander_wanted_configuration);
         nbe_i2c_full_register_read(&durin.hw.i2c_tof, EXPANDER_ADDRESS, 0, NBE_I2C_REGISTER_8, &expander_current_input, 2);
         while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {}
     }

@@ -14,10 +14,12 @@
 #define YELLOW 255,80,0
 #define PINK 255, 20, 20
 
-#define DEFAULT_SSID "NCSpeople"
-#define DEFAULT_PASSWORD "peopleNCS"
+#define DEFAULT_SSID "NCSdurin"
+#define DEFAULT_PASSWORD "durin123"
 
-#define USER_UART_ENABLED
+#define DURIN_MAX_WIFI_CONFIGURATIONS 3
+
+// #define CONSOLE_ENABLED
 
 #define CAPN_PACKED 1
 
@@ -33,9 +35,12 @@ struct distance_measurement {
 };
 
 struct durin_persistent {
+    struct durin_wifi_config {
+        uint8_t ssid[32];
+        uint8_t password[64];
+    };
     uint8_t node_id;
-    uint8_t main_ssid[32];
-    uint8_t main_password[64];
+    struct durin_wifi_config wifi_configurations[DURIN_MAX_WIFI_CONFIGURATIONS];
 };
 
 struct durin_telemetry {

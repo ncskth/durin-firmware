@@ -183,7 +183,7 @@ void app_main() {
 
     init_user_uart();
 
-    #ifdef USER_UART_ENABLED
+    #ifndef CONSOLE_ENABLED
     _GLOBAL_REENT->_stdout = fwopen(NULL, &durin_writefn);
     static char stdout_buf[129]; //magic extra byte for null
     setvbuf(_GLOBAL_REENT->_stdout, stdout_buf, _IOLBF, 128);

@@ -532,8 +532,13 @@ void handle_enableLogging(EnableLogging_ptr msg, struct DurinBase *response, str
 void handle_setWifiConfig(SetWifiConfig_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
     struct SetWifiConfig data;
     read_SetWifiConfig(&data, msg);
-    memcpy(durin_persistent.main_ssid, data.ssid.str, data.ssid.len + 1); //+1 because 0 terminated
-    memcpy(durin_persistent.main_password, data.password.str, data.password.len + 1);
+
+    if (data.index >= DURIN_MAX_WIFI_CONFIGURATIONS) {
+        fast_reject(response, cs);
+        return;
+    }
+    memcpy(durin_persistent.wifi_configurations[data.index].ssid, data.ssid.str, sizeof(durin_persistent.wifi_configurations[0].ssid));
+    memcpy(durin_persistent.wifi_configurations[data.index].password, data.password.str, sizeof(durin_persistent.wifi_configurations[0].password));
     update_persistent_data();
     fast_acknowledge(response, cs);
 }

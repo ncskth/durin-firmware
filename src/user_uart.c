@@ -6,7 +6,7 @@
 #include "protocol.h"
 
 void send_uart(uint8_t *buf, uint16_t len) {
-    #ifndef USER_UART_ENABLED
+    #ifdef CONSOLE_ENABLED
     return;
     #endif
     if (durin.info.ota_in_progress) {
@@ -36,7 +36,7 @@ void init_user_uart() {
         .flow_ctrl = UART_HW_FLOWCTRL_RTS,
         .rx_flow_ctrl_thresh = 122,
     };
-    #ifdef USER_UART_ENABLED
+    #ifndef CONSOLE_ENABLED
     ESP_ERROR_CHECK(uart_set_pin(UART_USER, PIN_UART_USER_TX, PIN_UART_USER_RX, PIN_UART_USER_RTS, PIN_UART_USER_CTS));
     ESP_ERROR_CHECK(uart_param_config(UART_USER, &uart_config));
     ESP_ERROR_CHECK(uart_driver_install(UART_USER, 2048, 4096, 0, NULL, 0));
@@ -44,7 +44,7 @@ void init_user_uart() {
 }
 
 void update_user_uart(struct pt *pt) {
-    #ifndef USER_UART_ENABLED
+    #ifdef CONSOLE_ENABLED
     return;
     #endif
     PT_BEGIN(pt);

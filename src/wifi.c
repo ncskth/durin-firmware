@@ -43,41 +43,6 @@ wifi_config_t wifi_config = {
     },
 };
 
-uint8_t volt_to_percent(float volt) {
-    // 8.4 100
-    // 8.2 90
-    // 8.05 80
-    // 7.91 70
-    // 7.75 60
-    // 7.67 50
-    // 7.59 40
-    // 7.53 30
-    // 7.45 20
-    // 7.37 10
-
-    if (volt < 7.37)
-        return 0;
-    if (volt < 7.45)
-        return 10;
-    if (volt < 7.53)
-        return 20;
-    if (volt < 7.59)
-        return 30;
-    if (volt < 7.67)
-        return 40;
-    if (volt < 7.75)
-        return 50;
-    if (volt < 7.91)
-        return 60;
-    if (volt < 8.05)
-        return 70;  
-    if (volt < 8.2)
-        return 80;        
-    if (volt < 8.4)
-        return 90;
-    return 100;
-}
-
 void send_tcp(uint8_t *buf, uint16_t len) {
     if (tcp_client_socket_id < 0) {
         return;
@@ -103,17 +68,21 @@ void wifi_disconnected_handler(void* handler_args, esp_event_base_t base, int32_
         mdns_free();
     }
     durin.info.wifi_connected = 0;
-
-    static uint8_t ping = 0;
-    if (ping) {
-        memcpy(wifi_config.sta.ssid, durin_persistent.main_ssid, sizeof(durin_persistent.main_ssid));
-        memcpy(wifi_config.sta.password, durin_persistent.main_password, sizeof(durin_persistent.main_password));
-        ping = 0;
-    } else {
-        memcpy(wifi_config.sta.ssid, DEFAULT_SSID, sizeof(DEFAULT_SSID));
-        memcpy(wifi_config.sta.password, DEFAULT_PASSWORD, sizeof(DEFAULT_PASSWORD));
-        ping = 1;
-    }
+    static int8_t wifi_index = -1;
+    do {
+        wifi_index += 1;
+        if (wifi_index == DURIN_MAX_WIFI_CONFIGURATIONS) {
+            uint8_t temp_ssid[sizeof(wifi_config.sta.ssid)] = DEFAULT_SSID;
+            uint8_t temp_password[sizeof(wifi_config.sta.password)] = DEFAULT_PASSWORD;
+            memcpy(wifi_config.sta.ssid, temp_ssid, sizeof(wifi_config.sta.ssid));
+            memcpy(wifi_config.sta.password, temp_password, sizeof(wifi_config.sta.password));
+            wifi_index = -1;
+        } else {
+            memcpy(wifi_config.sta.ssid, durin_persistent.wifi_configurations[wifi_index].ssid, sizeof(wifi_config.sta.ssid));
+            memcpy(wifi_config.sta.password, durin_persistent.wifi_configurations[wifi_index].password, sizeof(wifi_config.sta.password));
+        }
+    } while (strlen((char*) wifi_config.sta.ssid) == 0);
+    printf("connecting to %s %s\n", wifi_config.sta.ssid, wifi_config.sta.password);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     esp_wifi_connect(); // a failed connect sends a disconnected event
 }
@@ -128,7 +97,7 @@ void got_ip_handler(void* handler_args, esp_event_base_t base, int32_t id, void*
     char hostname[16];
     sprintf(hostname, "durin%d", durin_persistent.node_id);
     mdns_hostname_set(hostname);
-
+    printf("set mDNS hostname to %s\n", hostname);
     tcp_server_socket_id = socket(AF_INET, SOCK_STREAM, 0);
     bind(tcp_server_socket_id, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr));
     listen(tcp_server_socket_id, 2);
@@ -149,17 +118,17 @@ void init_wifi() {
     wifi_init_config.wifi_task_core_id = 1;
     ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_config));
 
-    memcpy(wifi_config.sta.ssid, durin_persistent.main_ssid, sizeof(durin_persistent.main_ssid));
-    memcpy(wifi_config.sta.password, durin_persistent.main_password, sizeof(durin_persistent.main_password));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_set_country_code("SE", true));
     ESP_ERROR_CHECK(esp_wifi_start());
+    printf("%s\n", wifi_config.sta.ssid);
+    printf("%s\n", wifi_config.sta.password);
     ESP_ERROR_CHECK(esp_wifi_connect());
     esp_wifi_set_ps(WIFI_PS_NONE);
     // esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_CONNECTED, wifi_connected_handler, NULL, NULL);
     esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, wifi_disconnected_handler, NULL, NULL);
-    esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, got_ip_handler, NULL, NULL);    
+    esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, got_ip_handler, NULL, NULL);
 
     //xTaskCreatePinnedToCore(tcp_server_task, "tcp_server", 6096, NULL, 4, NULL, TRASH_CORE);
 }
@@ -168,7 +137,7 @@ void update_wifi(struct pt *pt) {
     PT_BEGIN(pt);
     while(1) {
         PT_YIELD(pt);
-        
+
         // struct sockaddr_in dest_addr;
         // dest_addr.sin_addr.s_addr = durin.info.telemetry_udp_address;
         // dest_addr.sin_family = AF_INET;
@@ -197,9 +166,9 @@ void update_tcp_server(struct pt *pt) {
             continue;
         }
         tcp_client_socket_id = accept(tcp_server_socket_id,(struct sockaddr *)&remote_addr, &socklen);
-        
+
         if (tcp_client_socket_id < 0) {
-            // printf("no client\n");            
+            // printf("no client\n");
             PT_YIELD(pt);
             continue;
         }
