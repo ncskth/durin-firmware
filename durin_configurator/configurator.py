@@ -26,8 +26,8 @@ parser.add_argument('address', type=str, help = "[serial path]/[ip_address:port]
 parser.add_argument('--id', type=int,
                     help='set the node id')
 
-parser.add_argument('--wifi', nargs = 2, type=str,
-                    help='--wifi [ssid] [password]')
+parser.add_argument('--wifi', nargs = 3, type=str,
+                    help='--wifi [index] [ssid] [password]')
 
 parser.add_argument('--firmware', type=str,
                     help="upload a firmware file")
@@ -220,8 +220,9 @@ if args.wifi:
     print("updating wifi")
     msg = schema.DurinBase.new_message()
     msg.init("setWifiConfig")
-    msg.setWifiConfig.ssid = args.wifi[0]
-    msg.setWifiConfig.password = args.wifi[1]
+    msg.setWifiConfig.index = int(args.wifi[0])
+    msg.setWifiConfig.ssid = args.wifi[1]
+    msg.setWifiConfig.password = args.wifi[2]
 
     send_msg(msg)
     wait_ack()
