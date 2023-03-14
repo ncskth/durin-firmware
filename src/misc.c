@@ -11,6 +11,7 @@
 #include "durin.h"
 #include "esp_timer.h"
 #include "tof_and_expander.h"
+#include "protocol.h"
 
 #define DEFAULT_VREF 1100
 #define VOLT_LP_GAIN 0.9995
@@ -62,6 +63,24 @@ void set_led(uint8_t r, uint8_t g, uint8_t b) {
 void set_buzzer(uint8_t intensity) {
     ledc_set_duty(LED_SPEED_MODE, CHANNEL_BUZZER, intensity > 0);
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_BUZZER);
+}
+
+void send_system_status_telemetry() {
+    struct capn c;
+    struct capn_segment *cs;
+    struct DurinBase msg;
+    init_durinbase(&c, &cs, &msg);
+    struct SystemStatus data;
+    data.batteryMv = durin.telemetry.battery_voltage * 1000;
+    data.batteryPercent = 50;
+    msg.systemStatus = new_SystemStatus(cs);
+    write_SystemStatus(&data, msg.systemStatus);
+    msg.which = DurinBase_systemStatus;
+
+    uint8_t buf[256];
+    uint16_t len = sizeof(buf);
+    finish_durinbase(&c, &cs, &msg, buf, &len);
+    send_telemetry(buf, len);
 }
 
 void init_misc() {
@@ -215,7 +234,9 @@ void update_misc(struct pt *pt) {
     static uint64_t pressed_at = 0;
     static uint64_t pressed_previously = 0;
     static uint64_t last_action = 0;
+    static uint64_t system_status_last_sent;
     last_action = esp_timer_get_time();
+    system_status_last_sent = esp_timer_get_time();
     durin.telemetry.battery_voltage = 8;
 
     while (1) {
@@ -282,8 +303,14 @@ void update_misc(struct pt *pt) {
 
         if (durin.telemetry.battery_voltage < 6.6) {
             printf("no battery\n");
-            vTaskDelay(100);
+            // vTaskDelay(100);
             power_off();
+        }
+
+        if (esp_timer_get_time() - system_status_last_sent > 100000 &&
+            esp_timer_get_time() - system_status_last_sent > durin.info.systemstatus_stream_period) {
+            send_system_status_telemetry();
+            system_status_last_sent = esp_timer_get_time();
         }
         PT_YIELD(pt);
     }

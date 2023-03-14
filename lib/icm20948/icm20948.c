@@ -171,8 +171,9 @@ int icm20948_init(icm20948_t *icm, nbe_i2c_t *nbe_i2c, uint8_t address) {
         return -3;
     }
     reset(icm);     // reset the ICM20948. Don't check return value as a reset clears the register and can't be verified.
-    delay(1);       // wait for ICM-20948 to come back up
+    delay(10);       // wait for ICM-20948 to come back up
     resetMag(icm);  // Don't check return value as a reset clears the register and can't be verified.
+    delay(10);
     if (selectAutoClockSource(icm) < 0) {
         return -6;
     }
@@ -595,7 +596,7 @@ int readRegistersAsync(icm20948_t *icm, uint8_t subAddress, enum UserBank userBa
         tmpBuf[1] = REG_BANK_SEL;
         tmpBuf[2] = userBank << 4;
         icm->currentBank = userBank;
-        nbe_i2c_write_preamble(icm->nbe_i2c, tmpBuf, 3);    
+        nbe_i2c_write_preamble(icm->nbe_i2c, tmpBuf, 3);
     }
     nbe_i2c_start(icm->nbe_i2c);
     tmpBuf[0] = i2c_first_byte_write(icm->address);
@@ -621,7 +622,7 @@ int icm20948_readSensorSync(icm20948_t *icm) {
 
 int icm20948_readSensorAsync(icm20948_t *icm) {
     readRegistersAsync(icm, UB0_ACCEL_XOUT_H, USER_BANK_0, 20, icm->rxBuf);
-    return 1;  
+    return 1;
 }
 
 void icm20948_parseAllRaw(icm20948_t *icm, int16_t *ax, int16_t *ay, int16_t *az, int16_t *gx, int16_t *gy, int16_t *gz, int16_t *mx, int16_t *my, int16_t *mz) {

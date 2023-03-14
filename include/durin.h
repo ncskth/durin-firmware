@@ -15,7 +15,7 @@
 #define PINK 255, 20, 20
 
 #define DEFAULT_SSID "NCSdurin"
-#define DEFAULT_PASSWORD "durin123"
+#define DEFAULT_PASSWORD "durinNCS"
 
 #define DURIN_MAX_WIFI_CONFIGURATIONS 3
 

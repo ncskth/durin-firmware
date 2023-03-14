@@ -92,8 +92,8 @@ void init_uwb() {
     vTaskDelay(1);
     write_expander_pin(EX_PIN_UWB_RST, 1);
     vTaskDelay(1);
-
-    while (!dwt_checkidlerc()) {}
+    uint32_t start = esp_timer_get_time();
+    while (!dwt_checkidlerc() && esp_timer_get_time() - start < 1000000) {}
     if (dwt_initialise(DWT_DW_INIT) == DWT_ERROR) {
         printf("uwb error\n");
     }
@@ -137,11 +137,11 @@ void init_uwb() {
 void uwb_reading_task() {
     uint64_t last_poll = esp_timer_get_time();
     uint64_t random_delay = 0;
-    
+
     while (1) {
         uint32_t notification_value;
         xTaskNotifyWait(0, 0, &notification_value, 100);
-        
+
         xSemaphoreTake(uwb_mutex, portMAX_DELAY);
         uint32_t sys_status = dwt_read32bitreg(SYS_STATUS_ID);
         xSemaphoreGive(uwb_mutex);
@@ -245,10 +245,10 @@ void uwb_misc_task() {
             next_poll_index = (next_poll_index + 1) % all_beacon_ids_index;
             if (next_poll_index == 0) {
                 struct pos_solver_position pos = {
-                    durin.telemetry.pos_x, 
-                    durin.telemetry.pos_y, 
+                    durin.telemetry.pos_x,
+                    durin.telemetry.pos_y,
                     durin.telemetry.pos_z
-                };  
+                };
 
                 memcpy(durin.telemetry.distance_data_old_chache, durin.telemetry.distance_data, sizeof(durin.telemetry.distance_data)); //store an old cache for polling
                 durin.telemetry.distance_old_cache_index = durin.telemetry.distance_index;
@@ -282,7 +282,7 @@ void uwb_misc_task() {
             }
         }
     }
-    
+
 }
 
 void build_uwb_nodes_message(UwbNodes_ptr *ptr, struct capn_segment *cs) {
@@ -336,7 +336,7 @@ static void send_position_telemetry() {
     struct capn_segment *cs;
     struct DurinBase msg;
     init_durinbase(&c, &cs, &msg);
-    struct Position position;    
+    struct Position position;
     if (durin.telemetry.fix_type == 3) {
         position.which = Position_vectorMm;
         position.vectorMm.x = durin.telemetry.pos_x * 1000;
@@ -445,7 +445,7 @@ static void uwb_parse_message() {
     dwt_readrxdata(rx_buf, length, 0);
     xSemaphoreGive(uwb_mutex);
 
-    struct uwb_header *header = (struct uwb_header *) rx_buf; 
+    struct uwb_header *header = (struct uwb_header *) rx_buf;
     if (memcmp(header->magic, UWB_MAGIC_WORD, sizeof(header->magic)) != 0) {
         printf("invalid header %.*s\n", sizeof(header->magic), header->magic);
         return;
@@ -473,7 +473,7 @@ static void uwb_parse_message() {
             printf("registered uwb node %d as user\n", header->sender);
         }
     }
-    
+
     if (
         header->purpose == UWB_PURPOSE_BEACON_REPEATER ||
         header->purpose == UWB_PURPOSE_BEACON_X ||
@@ -543,7 +543,7 @@ static void uwb_parse_message() {
         new_measurement.flags = rx_msg->flags,
         durin.telemetry.distance_data[durin.telemetry.distance_index] = new_measurement;
         durin.telemetry.distance_index++;
-    } else 
+    } else
     if (header->msg_type == UWB_MSG_IS_ALIVE) {
 
     } else

@@ -8,18 +8,25 @@ icm20948_t icm;
 
 void init_imu() {
     float ax, ay, az, gx, gy, gz, mx, my, mz;
-    icm20948_init(&icm, &durin.hw.i2c_imu, 0x68);
-    vTaskDelay(10);
-    icm20948_init(&icm, &durin.hw.i2c_imu, 0x68);
-    vTaskDelay(10);
+    int err = icm20948_init(&icm, &durin.hw.i2c_imu, 0x68);
+    if (err < 0) {
+        printf("icm20948 returned %d for address 0x68\n", err);
+        // AAAAAAAAAAH I SOLDERED ONE WRONG
+        // test address 69 as well :(
+        err = icm20948_init(&icm, &durin.hw.i2c_imu, 0x69);
+        if (err < 0) {
+            printf("icm20948 returned %d for address 0x69\n", err);
+            set_led(PINK);
+        }
+    }
     icm20948_configAccel(&icm, ICM20948_ACCEL_RANGE_4G, ICM20948_ACCEL_DLPF_BANDWIDTH_473HZ);
     icm20948_configGyro(&icm, ICM20948_GYRO_RANGE_500DPS, ICM20948_GYRO_DLPF_BANDWIDTH_361HZ);
-    icm20948_setAccelSrd(&icm, 1);
-    icm20948_setGyroSrd(&icm, 1);
+    icm20948_setAccelSrd(&icm, 0);
+    icm20948_setGyroSrd(&icm, 0);
 
     icm20948_readSensorSync(&icm);
 
-    icm20948_parseAllRaw(&icm, 
+    icm20948_parseAllRaw(&icm,
         &durin.telemetry.raw_ax, &durin.telemetry.raw_ay, &durin.telemetry.raw_az,
         &durin.telemetry.raw_gx, &durin.telemetry.raw_gy, &durin.telemetry.raw_gz,
         &durin.telemetry.raw_mx, &durin.telemetry.raw_my, &durin.telemetry.raw_mz);
@@ -64,9 +71,10 @@ void update_imu(struct pt *pt) {
     PT_BEGIN(pt);
     static uint64_t last_telemetry_update = 0;
     while (1) {
-        icm20948_readSensorAsync(&icm);
+        // icm20948_readSensorAsync(&icm);
+        icm20948_readSensorSync(&icm);
         do { PT_YIELD(pt); } while (nbe_i2c_is_busy(&durin.hw.i2c_imu));
-        icm20948_parseAllRaw(&icm, 
+        icm20948_parseAllRaw(&icm,
             &durin.telemetry.raw_ax, &durin.telemetry.raw_ay, &durin.telemetry.raw_az,
             &durin.telemetry.raw_gx, &durin.telemetry.raw_gy, &durin.telemetry.raw_gz,
             &durin.telemetry.raw_mx, &durin.telemetry.raw_my, &durin.telemetry.raw_mz);

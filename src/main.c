@@ -133,6 +133,8 @@ void setup(void* arg) {
     esp_timer_early_init();
 
     // init_i2c(NULL);
+    printf("init imu\n");
+    init_imu();
 
     // init TOF
     printf("init tof\n");
@@ -145,9 +147,6 @@ void setup(void* arg) {
     // servo
     printf("init servo\n");
     init_servo();
-
-    printf("init imu\n");
-    init_imu();
 
     // uwb
     printf("init uwb\n");

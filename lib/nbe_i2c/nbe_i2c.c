@@ -87,7 +87,7 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
         nbe_i2c->has_read += len;
         nbe_i2c->busy = 0;
         dev->int_clr.trans_complete = 1;
-    } 
+    }
     else if (dev->int_status.end_detect) {
 
         dev->int_clr.end_detect = 1;
@@ -95,7 +95,7 @@ static void IRAM_ATTR nbe_i2c_isr(void *arg) {
     else if (dev->int_status.time_out) {
         //nbe_i2c_reboot(nbe_i2c);
         dev->int_clr.time_out = 1;
-    } 
+    }
     else if (dev->int_status.arbitration_lost) {
         //nbe_i2c_reboot(nbe_i2c);
         dev->int_clr.arbitration_lost = 1;
@@ -214,7 +214,7 @@ void nbe_i2c_write(nbe_i2c_t *nbe_i2c, uint8_t amount) {
     nbe_i2c->cmd.byte_num = amount;
     i2c_hal_write_cmd_reg(&nbe_i2c->hi2c, nbe_i2c->cmd, nbe_i2c->cmd_index);
     nbe_i2c->cmd_index++;
-    nbe_i2c->should_write += amount; 
+    nbe_i2c->should_write += amount;
 }
 
 //deprecated
@@ -260,7 +260,7 @@ void nbe_i2c_stop(nbe_i2c_t *nbe_i2c) {
 
 void nbe_i2c_commit(nbe_i2c_t *nbe_i2c) {
     nbe_i2c->started_at = esp_timer_get_time();
-    nbe_i2c->has_written = nbe_i2c->should_write < (NBE_I2C_FIFO_SIZE - nbe_i2c->preamble_size) ? nbe_i2c->should_write : (NBE_I2C_FIFO_SIZE - nbe_i2c->preamble_size); 
+    nbe_i2c->has_written = nbe_i2c->should_write < (NBE_I2C_FIFO_SIZE - nbe_i2c->preamble_size) ? nbe_i2c->should_write : (NBE_I2C_FIFO_SIZE - nbe_i2c->preamble_size);
     nbe_i2c->busy = 1;
     i2c_hal_write_txfifo(&nbe_i2c->hi2c, nbe_i2c->tx_buf, nbe_i2c->has_written);
     i2c_hal_trans_start(&nbe_i2c->hi2c);
@@ -292,7 +292,7 @@ void nbe_i2c_full_register_read(nbe_i2c_t *nbe_i2c, uint8_t address, uint16_t re
     nbe_i2c_start(nbe_i2c);
     nbe_i2c_write_preamble(nbe_i2c, &write_addr, 1);
     nbe_i2c_write_preamble(nbe_i2c, reg_buf, reg_len);
-    
+
     nbe_i2c_start(nbe_i2c);
     nbe_i2c_write_preamble(nbe_i2c, &read_addr, 1); // write the device address again
     if (len - 1 > 0) {
