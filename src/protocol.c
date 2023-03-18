@@ -1,6 +1,8 @@
 #include <string.h>
 #include <esp_ota_ops.h>
 #include <esp_rom_crc.h>
+#include <esp_netif.h>
+#include <esp_system.h>
 
 #include "prot.h"
 #include "protocol.h"
@@ -60,6 +62,8 @@ void handle_setWifiConfig(SetWifiConfig_ptr msg, struct DurinBase *response, str
 void handle_setNodeId(SetNodeId_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
 void handle_setTofResolution(SetTofResolution_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
 void handle_ping(Ping_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
+void handle_getSystemInfo(GetSystemInfo_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
+void handle_setUwbStreamPeriod(SetUwbStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
 
 void init_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase *msg) {
     capn_init_malloc(c);
@@ -279,6 +283,14 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
             handle_ping(base.ping, &durin_response, cs, where);
             break;
 
+        case DurinBase_getSystemInfo:
+            handle_getSystemInfo(base.getSystemInfo, &durin_response, cs, where);
+            break;
+
+        case DurinBase_setUwbStreamPeriod:
+            handle_setUwbStreamPeriod(base.setUwbStreamPeriod, &durin_response, cs, where);
+            break;
+
         default:
             fast_reject((&durin_response), cs);
     }
@@ -416,8 +428,8 @@ void handle_getPosition(GetPosition_ptr msg, struct DurinBase *response, struct 
 void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
     struct SystemStatus status;
     status.batteryMv = durin.telemetry.battery_voltage * 1000;
-    status.batteryPercent = 0; //TODO:
-
+    status.batteryPercent = 50; //TODO:
+    status.batteryDischarge = 0;
     response->systemStatus = new_SystemStatus(cs);
     write_SystemStatus(&status, response->systemStatus);
     response->which = DurinBase_systemStatus;
@@ -468,6 +480,12 @@ void handle_setTofStreamPeriod(SetTofStreamPeriod_ptr msg, struct DurinBase *res
     fast_acknowledge(response, cs);
 }
 
+void handle_setUwbStreamPeriod(SetUwbStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
+    struct SetUwbStreamPeriod data;
+    read_SetUwbStreamPeriod(&data, msg);
+    durin.info.uwb_stream_period = data.periodMs;
+    fast_acknowledge(response, cs);
+}
 
 esp_ota_handle_t ota_handle;
 esp_partition_t *ota_partition;
@@ -549,4 +567,44 @@ void handle_setNodeId(SetNodeId_ptr msg, struct DurinBase *response, struct capn
     durin_persistent.node_id = data.nodeId;
     update_persistent_data();
     fast_acknowledge(response, cs);
+}
+
+void handle_getSystemInfo(GetSystemInfo_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
+    struct SystemInfo data;
+
+    char ip_pretty[32];
+    tcpip_adapter_ip_info_t ipInfo;
+    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo);
+    char* ip_raw = (char*) &ipInfo.ip.addr;
+    sprintf(ip_pretty, "%d.%d.%d.%d", ip_raw[0], ip_raw[1], ip_raw[2], ip_raw[3]);
+    data.ip = (struct capn_text) {
+        .len = strlen(ip_pretty),
+        .str = ip_pretty,
+        .seg = NULL,
+    };
+
+    uint8_t mac_raw[6];
+    char mac_pretty[32];
+    esp_efuse_mac_get_default(mac_raw);
+    sprintf(mac_pretty, "%02x:%02x:%02x:%02x:%02x:%02x", mac_raw[0], mac_raw[1], mac_raw[2], mac_raw[3], mac_raw[4], mac_raw[5]);
+    data.mac = (struct capn_text) {
+        .len = strlen(mac_pretty),
+        .str = mac_pretty,
+        .seg = NULL,
+    };
+
+    char hostname[16];
+    sprintf(hostname, "durin%d", durin_persistent.node_id);
+    data.hostname = (struct capn_text) {
+        .len = strlen(hostname),
+        .str = hostname,
+        .seg = NULL,
+    };
+
+    data.id = durin_persistent.node_id;
+    data.uptimeMs = esp_timer_get_time() / 1000;
+
+    response->systemInfo = new_SystemInfo(cs);
+    write_SystemInfo(&data, response->systemInfo);
+    response->which = DurinBase_systemInfo;
 }

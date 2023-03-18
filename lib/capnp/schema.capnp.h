@@ -59,6 +59,8 @@ struct OtaUpdate;
 struct EnableLogging;
 struct Ping;
 struct Error;
+struct GetSystemInfo;
+struct SystemInfo;
 
 typedef struct {capn_ptr p;} DurinBase_ptr;
 typedef struct {capn_ptr p;} Reject_ptr;
@@ -99,6 +101,8 @@ typedef struct {capn_ptr p;} OtaUpdate_ptr;
 typedef struct {capn_ptr p;} EnableLogging_ptr;
 typedef struct {capn_ptr p;} Ping_ptr;
 typedef struct {capn_ptr p;} Error_ptr;
+typedef struct {capn_ptr p;} GetSystemInfo_ptr;
+typedef struct {capn_ptr p;} SystemInfo_ptr;
 
 typedef struct {capn_ptr p;} DurinBase_list;
 typedef struct {capn_ptr p;} Reject_list;
@@ -139,6 +143,8 @@ typedef struct {capn_ptr p;} OtaUpdate_list;
 typedef struct {capn_ptr p;} EnableLogging_list;
 typedef struct {capn_ptr p;} Ping_list;
 typedef struct {capn_ptr p;} Error_list;
+typedef struct {capn_ptr p;} GetSystemInfo_list;
+typedef struct {capn_ptr p;} SystemInfo_list;
 
 enum TofResolutions {
 	TofResolutions_resolution4x4rate60Hz = 0,
@@ -201,7 +207,9 @@ enum DurinBase_which {
 	DurinBase_otaUpdateCommit = 27,
 	DurinBase_otaUpdate = 28,
 	DurinBase_enableLogging = 29,
-	DurinBase_otaUpdateBegin = 30
+	DurinBase_otaUpdateBegin = 30,
+	DurinBase_getSystemInfo = 33,
+	DurinBase_systemInfo = 34
 };
 
 struct DurinBase {
@@ -240,6 +248,8 @@ struct DurinBase {
 		OtaUpdate_ptr otaUpdate;
 		EnableLogging_ptr enableLogging;
 		OtaUpdateBegin_ptr otaUpdateBegin;
+		GetSystemInfo_ptr getSystemInfo;
+		SystemInfo_ptr systemInfo;
 	};
 };
 
@@ -487,6 +497,7 @@ static const size_t GetSystemStatus_struct_bytes_count = 0;
 struct SystemStatus {
 	uint16_t batteryMv;
 	uint8_t batteryPercent;
+	uint8_t batteryDischarge;
 };
 
 static const size_t SystemStatus_word_count = 1;
@@ -739,6 +750,31 @@ static const size_t Error_pointer_count = 1;
 static const size_t Error_struct_bytes_count = 16;
 
 
+capnp_nowarn struct GetSystemInfo {
+};
+
+static const size_t GetSystemInfo_word_count = 0;
+
+static const size_t GetSystemInfo_pointer_count = 0;
+
+static const size_t GetSystemInfo_struct_bytes_count = 0;
+
+
+struct SystemInfo {
+	capn_text mac;
+	capn_text ip;
+	capn_text hostname;
+	uint8_t id;
+	uint32_t uptimeMs;
+};
+
+static const size_t SystemInfo_word_count = 1;
+
+static const size_t SystemInfo_pointer_count = 3;
+
+static const size_t SystemInfo_struct_bytes_count = 32;
+
+
 DurinBase_ptr new_DurinBase(struct capn_segment*);
 Reject_ptr new_Reject(struct capn_segment*);
 Acknowledge_ptr new_Acknowledge(struct capn_segment*);
@@ -778,6 +814,8 @@ OtaUpdate_ptr new_OtaUpdate(struct capn_segment*);
 EnableLogging_ptr new_EnableLogging(struct capn_segment*);
 Ping_ptr new_Ping(struct capn_segment*);
 Error_ptr new_Error(struct capn_segment*);
+GetSystemInfo_ptr new_GetSystemInfo(struct capn_segment*);
+SystemInfo_ptr new_SystemInfo(struct capn_segment*);
 
 DurinBase_list new_DurinBase_list(struct capn_segment*, int len);
 Reject_list new_Reject_list(struct capn_segment*, int len);
@@ -818,6 +856,8 @@ OtaUpdate_list new_OtaUpdate_list(struct capn_segment*, int len);
 EnableLogging_list new_EnableLogging_list(struct capn_segment*, int len);
 Ping_list new_Ping_list(struct capn_segment*, int len);
 Error_list new_Error_list(struct capn_segment*, int len);
+GetSystemInfo_list new_GetSystemInfo_list(struct capn_segment*, int len);
+SystemInfo_list new_SystemInfo_list(struct capn_segment*, int len);
 
 void read_DurinBase(struct DurinBase*, DurinBase_ptr);
 void read_Reject(struct Reject*, Reject_ptr);
@@ -858,6 +898,8 @@ void read_OtaUpdate(struct OtaUpdate*, OtaUpdate_ptr);
 void read_EnableLogging(struct EnableLogging*, EnableLogging_ptr);
 void read_Ping(struct Ping*, Ping_ptr);
 void read_Error(struct Error*, Error_ptr);
+void read_GetSystemInfo(struct GetSystemInfo*, GetSystemInfo_ptr);
+void read_SystemInfo(struct SystemInfo*, SystemInfo_ptr);
 
 void write_DurinBase(const struct DurinBase*, DurinBase_ptr);
 void write_Reject(const struct Reject*, Reject_ptr);
@@ -898,6 +940,8 @@ void write_OtaUpdate(const struct OtaUpdate*, OtaUpdate_ptr);
 void write_EnableLogging(const struct EnableLogging*, EnableLogging_ptr);
 void write_Ping(const struct Ping*, Ping_ptr);
 void write_Error(const struct Error*, Error_ptr);
+void write_GetSystemInfo(const struct GetSystemInfo*, GetSystemInfo_ptr);
+void write_SystemInfo(const struct SystemInfo*, SystemInfo_ptr);
 
 void get_DurinBase(struct DurinBase*, DurinBase_list, int i);
 void get_Reject(struct Reject*, Reject_list, int i);
@@ -938,6 +982,8 @@ void get_OtaUpdate(struct OtaUpdate*, OtaUpdate_list, int i);
 void get_EnableLogging(struct EnableLogging*, EnableLogging_list, int i);
 void get_Ping(struct Ping*, Ping_list, int i);
 void get_Error(struct Error*, Error_list, int i);
+void get_GetSystemInfo(struct GetSystemInfo*, GetSystemInfo_list, int i);
+void get_SystemInfo(struct SystemInfo*, SystemInfo_list, int i);
 
 void set_DurinBase(const struct DurinBase*, DurinBase_list, int i);
 void set_Reject(const struct Reject*, Reject_list, int i);
@@ -978,6 +1024,8 @@ void set_OtaUpdate(const struct OtaUpdate*, OtaUpdate_list, int i);
 void set_EnableLogging(const struct EnableLogging*, EnableLogging_list, int i);
 void set_Ping(const struct Ping*, Ping_list, int i);
 void set_Error(const struct Error*, Error_list, int i);
+void set_GetSystemInfo(const struct GetSystemInfo*, GetSystemInfo_list, int i);
+void set_SystemInfo(const struct SystemInfo*, SystemInfo_list, int i);
 
 #ifdef __cplusplus
 }

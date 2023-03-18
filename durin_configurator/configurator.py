@@ -47,6 +47,7 @@ parser.add_argument('--stream', action="store_true")
 parser.add_argument('--spam', action="store_true")
 parser.add_argument('--drive', action="store_true")
 parser.add_argument('--poweroff', action="store_true")
+parser.add_argument('--systeminfo', action="store_true")
 
 args = parser.parse_args()
 
@@ -154,6 +155,12 @@ if args.poweroff:
     msg = schema.DurinBase.new_message()
     msg.init("powerOff");
     send_msg(msg)
+
+if args.systeminfo:
+    msg = schema.DurinBase.new_message()
+    msg.init("getSystemInfo");
+    send_msg(msg)
+    print(receive_msg())
 
 if args.set_led:
     print("setting the LED")
@@ -297,9 +304,22 @@ if args.stream:
     # # msg.init("setTofResolution").resolution = schema.TofResolutions.resolution8x8rate15Hz
     # msg.init("setTofResolution").resolution = schema.TofResolutions.resolution4x4rate60Hz
     # # send_msg(msg)
-    # msg = schema.DurinBase.new_message()
-    # msg.init("setImuStreamPeriod").periodMs = 1000
-    # send_msg(msg)
+
+    msg = schema.DurinBase.new_message()
+    msg.init("setImuStreamPeriod").periodMs = 1000
+    send_msg(msg)
+    msg = schema.DurinBase.new_message()
+    msg.init("setSystemStatusStreamPeriod").periodMs = 1000
+    send_msg(msg)
+    msg = schema.DurinBase.new_message()
+    msg.init("setTofStreamPeriod").periodMs = 1000
+    send_msg(msg)
+    msg = schema.DurinBase.new_message()
+    msg.init("setPositionStreamPeriod").periodMs = 1000
+    send_msg(msg)
+    msg = schema.DurinBase.new_message()
+    msg.init("setUwbStreamPeriod").periodMs = 1000
+    send_msg(msg)
     msg = schema.DurinBase.new_message()
     msg.init("enableStreaming")
     if args.type == "uart":

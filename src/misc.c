@@ -33,6 +33,14 @@ esp_adc_cal_characteristics_t *adc_chars;
 nvs_handle_t durin_nvs;
 static uint64_t power_off_when = 0;
 
+void load_hardcoded_streaming_periods() {
+    durin.info.imu_stream_period = 50;
+    durin.info.position_stream_period = 50;
+    durin.info.tof_stream_period = 50;
+    durin.info.systemstatus_stream_period = 50;
+    durin.info.uwb_stream_period = 50;
+}
+
 void update_persistent_data() {
     int err = nvs_set_blob(durin_nvs, "durin_nvs", &durin_persistent, sizeof(durin_persistent));
     if (err != ESP_OK) {
@@ -73,6 +81,7 @@ void send_system_status_telemetry() {
     struct SystemStatus data;
     data.batteryMv = durin.telemetry.battery_voltage * 1000;
     data.batteryPercent = 50;
+    data.batteryDischarge = 0;
     msg.systemStatus = new_SystemStatus(cs);
     write_SystemStatus(&data, msg.systemStatus);
     msg.which = DurinBase_systemStatus;
@@ -231,6 +240,7 @@ void init_misc() {
 
 void update_misc(struct pt *pt) {
     PT_BEGIN(pt);
+    load_hardcoded_streaming_periods();
     static uint64_t pressed_at = 0;
     static uint64_t pressed_previously = 0;
     static uint64_t last_action = 0;
@@ -307,8 +317,7 @@ void update_misc(struct pt *pt) {
             power_off();
         }
 
-        if (esp_timer_get_time() - system_status_last_sent > 100000 &&
-            esp_timer_get_time() - system_status_last_sent > durin.info.systemstatus_stream_period) {
+        if (esp_timer_get_time() - system_status_last_sent > durin.info.systemstatus_stream_period * 1000) {
             send_system_status_telemetry();
             system_status_last_sent = esp_timer_get_time();
         }

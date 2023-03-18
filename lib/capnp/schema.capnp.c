@@ -67,7 +67,9 @@ void read_DurinBase(struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	case DurinBase_otaUpdate:
 	case DurinBase_enableLogging:
 	case DurinBase_otaUpdateBegin:
-		s->otaUpdateBegin.p = capn_getp(p.p, 0, 0);
+	case DurinBase_getSystemInfo:
+	case DurinBase_systemInfo:
+		s->systemInfo.p = capn_getp(p.p, 0, 0);
 		break;
 	default:
 		break;
@@ -111,7 +113,9 @@ void write_DurinBase(const struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	case DurinBase_otaUpdate:
 	case DurinBase_enableLogging:
 	case DurinBase_otaUpdateBegin:
-		capn_setp(p.p, 0, s->otaUpdateBegin.p);
+	case DurinBase_getSystemInfo:
+	case DurinBase_systemInfo:
+		capn_setp(p.p, 0, s->systemInfo.p);
 		break;
 	default:
 		break;
@@ -776,12 +780,14 @@ void read_SystemStatus(struct SystemStatus *s capnp_unused, SystemStatus_ptr p) 
 	capnp_use(s);
 	s->batteryMv = capn_read16(p.p, 0);
 	s->batteryPercent = capn_read8(p.p, 2);
+	s->batteryDischarge = capn_read8(p.p, 3);
 }
 void write_SystemStatus(const struct SystemStatus *s capnp_unused, SystemStatus_ptr p) {
 	capn_resolve(&p.p);
 	capnp_use(s);
 	capn_write16(p.p, 0, s->batteryMv);
 	capn_write8(p.p, 2, s->batteryPercent);
+	capn_write8(p.p, 3, s->batteryDischarge);
 }
 void get_SystemStatus(struct SystemStatus *s, SystemStatus_list l, int i) {
 	SystemStatus_ptr p;
@@ -1420,4 +1426,72 @@ void set_Error(const struct Error *s, Error_list l, int i) {
 	Error_ptr p;
 	p.p = capn_getp(l.p, i, 0);
 	write_Error(s, p);
+}
+
+GetSystemInfo_ptr new_GetSystemInfo(struct capn_segment *s) {
+	GetSystemInfo_ptr p;
+	p.p = capn_new_struct(s, 0, 0);
+	return p;
+}
+GetSystemInfo_list new_GetSystemInfo_list(struct capn_segment *s, int len) {
+	GetSystemInfo_list p;
+	p.p = capn_new_list(s, len, 0, 0);
+	return p;
+}
+void read_GetSystemInfo(struct GetSystemInfo *s capnp_unused, GetSystemInfo_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+}
+void write_GetSystemInfo(const struct GetSystemInfo *s capnp_unused, GetSystemInfo_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+}
+void get_GetSystemInfo(struct GetSystemInfo *s, GetSystemInfo_list l, int i) {
+	GetSystemInfo_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_GetSystemInfo(s, p);
+}
+void set_GetSystemInfo(const struct GetSystemInfo *s, GetSystemInfo_list l, int i) {
+	GetSystemInfo_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_GetSystemInfo(s, p);
+}
+
+SystemInfo_ptr new_SystemInfo(struct capn_segment *s) {
+	SystemInfo_ptr p;
+	p.p = capn_new_struct(s, 8, 3);
+	return p;
+}
+SystemInfo_list new_SystemInfo_list(struct capn_segment *s, int len) {
+	SystemInfo_list p;
+	p.p = capn_new_list(s, len, 8, 3);
+	return p;
+}
+void read_SystemInfo(struct SystemInfo *s capnp_unused, SystemInfo_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	s->mac = capn_get_text(p.p, 0, capn_val0);
+	s->ip = capn_get_text(p.p, 1, capn_val0);
+	s->hostname = capn_get_text(p.p, 2, capn_val0);
+	s->id = capn_read8(p.p, 0);
+	s->uptimeMs = capn_read32(p.p, 4);
+}
+void write_SystemInfo(const struct SystemInfo *s capnp_unused, SystemInfo_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	capn_set_text(p.p, 0, s->mac);
+	capn_set_text(p.p, 1, s->ip);
+	capn_set_text(p.p, 2, s->hostname);
+	capn_write8(p.p, 0, s->id);
+	capn_write32(p.p, 4, s->uptimeMs);
+}
+void get_SystemInfo(struct SystemInfo *s, SystemInfo_list l, int i) {
+	SystemInfo_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_SystemInfo(s, p);
+}
+void set_SystemInfo(const struct SystemInfo *s, SystemInfo_list l, int i) {
+	SystemInfo_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_SystemInfo(s, p);
 }

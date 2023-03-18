@@ -53,6 +53,9 @@ struct DurinBase {
         otaUpdate @28 :OtaUpdate;
         enableLogging @29 :EnableLogging;
         otaUpdateBegin @30 :OtaUpdateBegin;
+
+        getSystemInfo @33 :GetSystemInfo;
+        systemInfo @34 :SystemInfo;
     }
 }
 
@@ -220,6 +223,7 @@ struct GetSystemStatus {
 struct SystemStatus {
     batteryMv @0 :UInt16;
     batteryPercent @1 :UInt8;
+    batteryDischarge @2 :UInt8;
 }
 
 ### uwb ranging
@@ -357,4 +361,17 @@ enum ErrorType {
 struct Error {
     type @0 :ErrorType;
     string @1 :Text;
+}
+
+
+struct GetSystemInfo {
+
+}
+
+struct SystemInfo {
+    mac @0 :Text;
+    ip @1 :Text;
+    hostname @2 :Text;
+    id @3 :UInt8;
+    uptimeMs @4 :UInt32;
 }

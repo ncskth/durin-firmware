@@ -71,8 +71,8 @@ void update_imu(struct pt *pt) {
     PT_BEGIN(pt);
     static uint64_t last_telemetry_update = 0;
     while (1) {
-        // icm20948_readSensorAsync(&icm);
-        icm20948_readSensorSync(&icm);
+        icm20948_readSensorAsync(&icm);
+        // icm20948_readSensorSync(&icm);
         do { PT_YIELD(pt); } while (nbe_i2c_is_busy(&durin.hw.i2c_imu));
         icm20948_parseAllRaw(&icm,
             &durin.telemetry.raw_ax, &durin.telemetry.raw_ay, &durin.telemetry.raw_az,

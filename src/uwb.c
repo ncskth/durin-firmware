@@ -261,7 +261,7 @@ void uwb_misc_task() {
                     send_position_telemetry();
                     last_position_telemetry = current_time;
                 }
-                if (current_time - last_uwb_nodes_telemetry > durin.info.position_stream_period * 1000) {
+                if (current_time - last_uwb_nodes_telemetry > durin.info.uwb_stream_period * 1000) {
                     send_uwb_nodes_telemetry();
                     last_uwb_nodes_telemetry = current_time;
                 }
@@ -272,11 +272,11 @@ void uwb_misc_task() {
             durin.telemetry.pos_y = 0;
             durin.telemetry.pos_z = 0;
             durin.telemetry.fix_type = 0;
-            if (current_time - last_position_telemetry > (1000 + durin.info.position_stream_period) * 1000) {
+            if (current_time - last_position_telemetry > (durin.info.position_stream_period) * 1000) {
                 send_position_telemetry();
                 last_position_telemetry = current_time;
             }
-            if (current_time - last_uwb_nodes_telemetry > (1000 + durin.info.position_stream_period) * 1000) {
+            if (current_time - last_uwb_nodes_telemetry > (durin.info.uwb_stream_period) * 1000) {
                 send_uwb_nodes_telemetry();
                 last_uwb_nodes_telemetry = current_time;
             }
