@@ -29,6 +29,7 @@ struct DurinBase {
         getTofObservations @10 :GetTofObservations;
         setTofResolution @11 :SetTofResolution;
         tofObservations @12 :TofObservations;
+        enableTofStatus @35 :EnableTofStatus;
 
         setImuStreamPeriod @13 :SetImuStreamPeriod;
         getImuMeasurement @14 :GetImuMeasurement;
@@ -153,6 +154,10 @@ enum TofResolutions {
 }
 struct SetTofResolution {
     resolution @0 :TofResolutions;
+}
+
+struct EnableTofStatus {
+    enabled @0 :Bool;
 }
 
 # A list with TOF observations

@@ -66,6 +66,7 @@ struct durin_info {
     uint16_t telemetry_udp_port;
     uint32_t telemetry_udp_address;
     uint8_t tof_sensor_alive[8];
+    bool tof_status_enabled;
     uint8_t motor_enabled;
     uint8_t user_enabled;
     uint16_t tof_stream_period;

@@ -80,7 +80,7 @@ void send_system_status_telemetry() {
     init_durinbase(&c, &cs, &msg);
     struct SystemStatus data;
     data.batteryMv = durin.telemetry.battery_voltage * 1000;
-    data.batteryPercent = 50;
+    data.batteryPercent = 0;
     data.batteryDischarge = 0;
     msg.systemStatus = new_SystemStatus(cs);
     write_SystemStatus(&data, msg.systemStatus);

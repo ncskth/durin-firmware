@@ -48,6 +48,7 @@ void read_DurinBase(struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	case DurinBase_getTofObservations:
 	case DurinBase_setTofResolution:
 	case DurinBase_tofObservations:
+	case DurinBase_enableTofStatus:
 	case DurinBase_setImuStreamPeriod:
 	case DurinBase_getImuMeasurement:
 	case DurinBase_imuMeasurement:
@@ -94,6 +95,7 @@ void write_DurinBase(const struct DurinBase *s capnp_unused, DurinBase_ptr p) {
 	case DurinBase_getTofObservations:
 	case DurinBase_setTofResolution:
 	case DurinBase_tofObservations:
+	case DurinBase_enableTofStatus:
 	case DurinBase_setImuStreamPeriod:
 	case DurinBase_getImuMeasurement:
 	case DurinBase_imuMeasurement:
@@ -532,6 +534,37 @@ void set_SetTofResolution(const struct SetTofResolution *s, SetTofResolution_lis
 	SetTofResolution_ptr p;
 	p.p = capn_getp(l.p, i, 0);
 	write_SetTofResolution(s, p);
+}
+
+EnableTofStatus_ptr new_EnableTofStatus(struct capn_segment *s) {
+	EnableTofStatus_ptr p;
+	p.p = capn_new_struct(s, 8, 0);
+	return p;
+}
+EnableTofStatus_list new_EnableTofStatus_list(struct capn_segment *s, int len) {
+	EnableTofStatus_list p;
+	p.p = capn_new_list(s, len, 8, 0);
+	return p;
+}
+void read_EnableTofStatus(struct EnableTofStatus *s capnp_unused, EnableTofStatus_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	s->enabled = (capn_read8(p.p, 0) & 1) != 0;
+}
+void write_EnableTofStatus(const struct EnableTofStatus *s capnp_unused, EnableTofStatus_ptr p) {
+	capn_resolve(&p.p);
+	capnp_use(s);
+	capn_write1(p.p, 0, s->enabled != 0);
+}
+void get_EnableTofStatus(struct EnableTofStatus *s, EnableTofStatus_list l, int i) {
+	EnableTofStatus_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	read_EnableTofStatus(s, p);
+}
+void set_EnableTofStatus(const struct EnableTofStatus *s, EnableTofStatus_list l, int i) {
+	EnableTofStatus_ptr p;
+	p.p = capn_getp(l.p, i, 0);
+	write_EnableTofStatus(s, p);
 }
 
 TofObservations_ptr new_TofObservations(struct capn_segment *s) {

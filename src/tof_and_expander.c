@@ -29,6 +29,29 @@ uint16_t expander_parse(uint8_t *buf);
 
 enum TofResolutions wanted_tof_resolution = 0;
 
+uint8_t tof_position_id_to_hardware_id(uint8_t hw_id) {
+    switch (hw_id) {
+        case 0:
+            return 2;
+        case 1:
+            return 6;
+        case 2:
+            return 7;
+        case 3:
+            return 5;
+        case 4:
+            return 4;
+        case 5:
+            return 3;
+        case 6:
+            return 0;
+        case 7:
+            return 1;
+        default:
+            return -1;
+    }
+}
+
 void set_tof_resolution(enum TofResolutions resolution) {
     wanted_tof_resolution = resolution;
 }
@@ -93,16 +116,17 @@ void build_tof_message(TofObservations_ptr *ptr, struct capn_segment *cs, uint8_
             continue;
         }
         uint8_t pixels;
-        uint8_t id = i;
+        uint8_t hw_id = tof_position_id_to_hardware_id(i);
+        uint8_t pos_id = i;
         struct TofObservations_TofObservation observation;
-        observation.id = id;
+        observation.id = pos_id;
         if (durin.info.tof_resolution == TofResolutions_resolution4x4rate60Hz) {
             pixels = 16;
         } else {
             pixels = 64;
         }
         observation.ranges = capn_new_list16(cs, pixels);
-        capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[id], pixels);
+        capn_setv16(observation.ranges, 0, durin.telemetry.ranging_data[hw_id], pixels);
         set_TofObservations_TofObservation(&observation, tof_observations.observations, sensor_index);
         sensor_index++;
     }
@@ -221,7 +245,7 @@ void update_tof_and_expander(struct pt *pt) {
                 for (uint8_t src_x = 0; src_x < img_size; src_x++) {
                     uint8_t target_x = img_size - 1 - src_x;
                     uint8_t target_y = src_y;
-                    uint8_t status = result.target_status[src_x + src_y * img_size];
+                    uint8_t status = result.target_status[src_x + src_y * img_size] & 0b0011111111111111;
                     uint8_t status_bits = 0;
                     switch (status) {
                         case 0: // not updated
@@ -238,7 +262,11 @@ void update_tof_and_expander(struct pt *pt) {
                             status_bits = 0b10;
                             break;
                     }
+                    if (!durin.info.tof_status_enabled) {
+                        status_bits = 0;
+                    }
                     durin.telemetry.ranging_data[tof_index][target_x + img_size * target_y] = result.distance_mm[src_x + src_y * img_size] | (status_bits << 14);
+                    // printf("status %d %d %d\n", status, status_bits, durin.telemetry.ranging_data[tof_index][target_x + img_size * target_y] >> 14);
                 }
             }
         }

@@ -64,6 +64,7 @@ void handle_setTofResolution(SetTofResolution_ptr msg, struct DurinBase *respons
 void handle_ping(Ping_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
 void handle_getSystemInfo(GetSystemInfo_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
 void handle_setUwbStreamPeriod(SetUwbStreamPeriod_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
+void handle_enableTofStatus(EnableTofStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel);
 
 void init_durinbase(struct capn *c, struct capn_segment **cs, struct DurinBase *msg) {
     capn_init_malloc(c);
@@ -291,6 +292,10 @@ void decode_message(uint8_t* buf, uint16_t len, enum comm_channel where) {
             handle_setUwbStreamPeriod(base.setUwbStreamPeriod, &durin_response, cs, where);
             break;
 
+        case DurinBase_enableTofStatus:
+            handle_enableTofStatus(base.enableTofStatus, &durin_response, cs, where);
+            break;
+
         default:
             fast_reject((&durin_response), cs);
     }
@@ -428,7 +433,7 @@ void handle_getPosition(GetPosition_ptr msg, struct DurinBase *response, struct 
 void handle_getSystemStatus(GetSystemStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
     struct SystemStatus status;
     status.batteryMv = durin.telemetry.battery_voltage * 1000;
-    status.batteryPercent = 50; //TODO:
+    status.batteryPercent = 0; //TODO:
     status.batteryDischarge = 0;
     response->systemStatus = new_SystemStatus(cs);
     write_SystemStatus(&status, response->systemStatus);
@@ -607,4 +612,10 @@ void handle_getSystemInfo(GetSystemInfo_ptr msg, struct DurinBase *response, str
     response->systemInfo = new_SystemInfo(cs);
     write_SystemInfo(&data, response->systemInfo);
     response->which = DurinBase_systemInfo;
+}
+
+void handle_enableTofStatus(EnableTofStatus_ptr msg, struct DurinBase *response, struct capn_segment *cs, enum comm_channel channel) {
+    struct EnableTofStatus data;
+    read_EnableTofStatus(&data, msg);
+    durin.info.tof_status_enabled = data.enabled;
 }

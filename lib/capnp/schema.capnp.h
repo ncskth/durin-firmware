@@ -33,6 +33,7 @@ struct DisableStreaming;
 struct SetTofStreamPeriod;
 struct GetTofObservations;
 struct SetTofResolution;
+struct EnableTofStatus;
 struct TofObservations;
 struct TofObservations_TofObservation;
 struct SetImuStreamPeriod;
@@ -75,6 +76,7 @@ typedef struct {capn_ptr p;} DisableStreaming_ptr;
 typedef struct {capn_ptr p;} SetTofStreamPeriod_ptr;
 typedef struct {capn_ptr p;} GetTofObservations_ptr;
 typedef struct {capn_ptr p;} SetTofResolution_ptr;
+typedef struct {capn_ptr p;} EnableTofStatus_ptr;
 typedef struct {capn_ptr p;} TofObservations_ptr;
 typedef struct {capn_ptr p;} TofObservations_TofObservation_ptr;
 typedef struct {capn_ptr p;} SetImuStreamPeriod_ptr;
@@ -117,6 +119,7 @@ typedef struct {capn_ptr p;} DisableStreaming_list;
 typedef struct {capn_ptr p;} SetTofStreamPeriod_list;
 typedef struct {capn_ptr p;} GetTofObservations_list;
 typedef struct {capn_ptr p;} SetTofResolution_list;
+typedef struct {capn_ptr p;} EnableTofStatus_list;
 typedef struct {capn_ptr p;} TofObservations_list;
 typedef struct {capn_ptr p;} TofObservations_TofObservation_list;
 typedef struct {capn_ptr p;} SetImuStreamPeriod_list;
@@ -189,6 +192,7 @@ enum DurinBase_which {
 	DurinBase_getTofObservations = 10,
 	DurinBase_setTofResolution = 11,
 	DurinBase_tofObservations = 12,
+	DurinBase_enableTofStatus = 35,
 	DurinBase_setImuStreamPeriod = 13,
 	DurinBase_getImuMeasurement = 14,
 	DurinBase_imuMeasurement = 15,
@@ -229,6 +233,7 @@ struct DurinBase {
 		GetTofObservations_ptr getTofObservations;
 		SetTofResolution_ptr setTofResolution;
 		TofObservations_ptr tofObservations;
+		EnableTofStatus_ptr enableTofStatus;
 		SetImuStreamPeriod_ptr setImuStreamPeriod;
 		GetImuMeasurement_ptr getImuMeasurement;
 		ImuMeasurement_ptr imuMeasurement;
@@ -408,6 +413,17 @@ static const size_t SetTofResolution_word_count = 1;
 static const size_t SetTofResolution_pointer_count = 0;
 
 static const size_t SetTofResolution_struct_bytes_count = 8;
+
+
+struct EnableTofStatus {
+	unsigned enabled : 1;
+};
+
+static const size_t EnableTofStatus_word_count = 1;
+
+static const size_t EnableTofStatus_pointer_count = 0;
+
+static const size_t EnableTofStatus_struct_bytes_count = 8;
 
 
 struct TofObservations {
@@ -788,6 +804,7 @@ DisableStreaming_ptr new_DisableStreaming(struct capn_segment*);
 SetTofStreamPeriod_ptr new_SetTofStreamPeriod(struct capn_segment*);
 GetTofObservations_ptr new_GetTofObservations(struct capn_segment*);
 SetTofResolution_ptr new_SetTofResolution(struct capn_segment*);
+EnableTofStatus_ptr new_EnableTofStatus(struct capn_segment*);
 TofObservations_ptr new_TofObservations(struct capn_segment*);
 TofObservations_TofObservation_ptr new_TofObservations_TofObservation(struct capn_segment*);
 SetImuStreamPeriod_ptr new_SetImuStreamPeriod(struct capn_segment*);
@@ -830,6 +847,7 @@ DisableStreaming_list new_DisableStreaming_list(struct capn_segment*, int len);
 SetTofStreamPeriod_list new_SetTofStreamPeriod_list(struct capn_segment*, int len);
 GetTofObservations_list new_GetTofObservations_list(struct capn_segment*, int len);
 SetTofResolution_list new_SetTofResolution_list(struct capn_segment*, int len);
+EnableTofStatus_list new_EnableTofStatus_list(struct capn_segment*, int len);
 TofObservations_list new_TofObservations_list(struct capn_segment*, int len);
 TofObservations_TofObservation_list new_TofObservations_TofObservation_list(struct capn_segment*, int len);
 SetImuStreamPeriod_list new_SetImuStreamPeriod_list(struct capn_segment*, int len);
@@ -872,6 +890,7 @@ void read_DisableStreaming(struct DisableStreaming*, DisableStreaming_ptr);
 void read_SetTofStreamPeriod(struct SetTofStreamPeriod*, SetTofStreamPeriod_ptr);
 void read_GetTofObservations(struct GetTofObservations*, GetTofObservations_ptr);
 void read_SetTofResolution(struct SetTofResolution*, SetTofResolution_ptr);
+void read_EnableTofStatus(struct EnableTofStatus*, EnableTofStatus_ptr);
 void read_TofObservations(struct TofObservations*, TofObservations_ptr);
 void read_TofObservations_TofObservation(struct TofObservations_TofObservation*, TofObservations_TofObservation_ptr);
 void read_SetImuStreamPeriod(struct SetImuStreamPeriod*, SetImuStreamPeriod_ptr);
@@ -914,6 +933,7 @@ void write_DisableStreaming(const struct DisableStreaming*, DisableStreaming_ptr
 void write_SetTofStreamPeriod(const struct SetTofStreamPeriod*, SetTofStreamPeriod_ptr);
 void write_GetTofObservations(const struct GetTofObservations*, GetTofObservations_ptr);
 void write_SetTofResolution(const struct SetTofResolution*, SetTofResolution_ptr);
+void write_EnableTofStatus(const struct EnableTofStatus*, EnableTofStatus_ptr);
 void write_TofObservations(const struct TofObservations*, TofObservations_ptr);
 void write_TofObservations_TofObservation(const struct TofObservations_TofObservation*, TofObservations_TofObservation_ptr);
 void write_SetImuStreamPeriod(const struct SetImuStreamPeriod*, SetImuStreamPeriod_ptr);
@@ -956,6 +976,7 @@ void get_DisableStreaming(struct DisableStreaming*, DisableStreaming_list, int i
 void get_SetTofStreamPeriod(struct SetTofStreamPeriod*, SetTofStreamPeriod_list, int i);
 void get_GetTofObservations(struct GetTofObservations*, GetTofObservations_list, int i);
 void get_SetTofResolution(struct SetTofResolution*, SetTofResolution_list, int i);
+void get_EnableTofStatus(struct EnableTofStatus*, EnableTofStatus_list, int i);
 void get_TofObservations(struct TofObservations*, TofObservations_list, int i);
 void get_TofObservations_TofObservation(struct TofObservations_TofObservation*, TofObservations_TofObservation_list, int i);
 void get_SetImuStreamPeriod(struct SetImuStreamPeriod*, SetImuStreamPeriod_list, int i);
@@ -998,6 +1019,7 @@ void set_DisableStreaming(const struct DisableStreaming*, DisableStreaming_list,
 void set_SetTofStreamPeriod(const struct SetTofStreamPeriod*, SetTofStreamPeriod_list, int i);
 void set_GetTofObservations(const struct GetTofObservations*, GetTofObservations_list, int i);
 void set_SetTofResolution(const struct SetTofResolution*, SetTofResolution_list, int i);
+void set_EnableTofStatus(const struct EnableTofStatus*, EnableTofStatus_list, int i);
 void set_TofObservations(const struct TofObservations*, TofObservations_list, int i);
 void set_TofObservations_TofObservation(const struct TofObservations_TofObservation*, TofObservations_TofObservation_list, int i);
 void set_SetImuStreamPeriod(const struct SetImuStreamPeriod*, SetImuStreamPeriod_list, int i);
