@@ -90,7 +90,7 @@ def tcp_rx_thread():
                     print("tcp got the wrong length", len(payload), payload_len)
                     continue
                 msg = schema.DurinBase.from_bytes_packed(payload)
-                print("tcp got message", msg.which())
+                # print("tcp got message", msg.which())
                 if msg.which() == "enableStreaming":
                     ip = None
                     port = None
@@ -143,7 +143,7 @@ def uart_rx_thread():
         if (len(payload) != payload_len):
             print("uart got the wrong length", len(payload), payload_len)
         msg = schema.DurinBase.from_bytes_packed(payload)
-        print("uart got message", msg.which())
+        # print("uart got message", msg.which())
         if meta:
             udp_tx_queue.append(buf)
         else:
@@ -161,7 +161,7 @@ def udp_tx_thread():
     while True:
         try:
             if len(udp_tx_queue) > 0:
-                print("udp tx")
+                # print("udp tx")
                 udp_send(udp_tx_queue.pop(0), udp_socket)
             else:
                 time.sleep(0.01)
@@ -180,7 +180,7 @@ def tcp_tx_thread():
     while True:
         try:
             if len(tcp_tx_queue) > 0:
-                print("tcp tx")
+                # print("tcp tx")
                 tcp_send(tcp_tx_queue.pop(0), tcp_user_socket)
             else:
                 time.sleep(0.01)
@@ -190,7 +190,7 @@ def tcp_tx_thread():
 def uart_tx_thread():
     while True:
         if len(uart_tx_queue) > 0:
-            print("uart tx")
+            # print("uart tx")
             buf = uart_tx_queue.pop(0)
             ser.write(buf)
         else:
