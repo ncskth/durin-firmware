@@ -88,7 +88,7 @@ struct uwb_is_alive {
 
 struct uwb_give_word {
     struct uwb_header header;
-    uint32_t duration;   
+    uint32_t duration;
 };
 
 struct uwb_system_status_msg {

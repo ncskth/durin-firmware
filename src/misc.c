@@ -69,7 +69,10 @@ void set_led(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void set_buzzer(uint8_t intensity) {
-    ledc_set_duty(LED_SPEED_MODE, CHANNEL_BUZZER, intensity > 0);
+    if (intensity) {
+        intensity = 125;
+    }
+    ledc_set_duty(LED_SPEED_MODE, CHANNEL_BUZZER, intensity);
     ledc_update_duty(LED_SPEED_MODE, CHANNEL_BUZZER);
 }
 
@@ -80,8 +83,8 @@ void send_system_status_telemetry() {
     init_durinbase(&c, &cs, &msg);
     struct SystemStatus data;
     data.batteryMv = durin.telemetry.battery_voltage * 1000;
-    data.batteryPercent = 0;
-    data.batteryDischarge = 0;
+    data.batteryPercent = durin.telemetry.battery_charge_percent;
+    data.batteryDischarge = durin.telemetry.battery_discharge_rate;
     msg.systemStatus = new_SystemStatus(cs);
     write_SystemStatus(&data, msg.systemStatus);
     msg.which = DurinBase_systemStatus;
@@ -114,6 +117,8 @@ void init_misc() {
     }
 
     gpio_set_direction(PIN_BUTTON_IN, GPIO_MODE_INPUT);
+
+    #ifdef DURIN1
     gpio_set_direction(PIN_VBAT_SENSE_GND, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_VBAT_SENSE_GND, 0);
 
@@ -128,6 +133,7 @@ void init_misc() {
     }
     adc1_config_width(ADC_WIDTH_12Bit);
     adc1_config_channel_atten(CHANNEL_BAT_SENSE, ADC_ATTEN_11db);
+    #endif
 
     // led
     ledc_timer_config_t led_timer_conf_r = {
@@ -221,10 +227,11 @@ void init_misc() {
 
     write_expander_pin(EX_PIN_SERVO_EN, 1);
     configure_expander_pin(EX_PIN_SERVO_EN, 0);
+    write_expander_pin(EX_PIN_SERVO_EN, 1);
 
     durin.info.last_message_received = esp_timer_get_time();
 
-
+    #ifdef DURIN1
     uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
     float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
     new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
@@ -236,6 +243,7 @@ void init_misc() {
         new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - 0.99) + durin.telemetry.battery_voltage * 0.99;
     }
+    #endif
 }
 
 void update_misc(struct pt *pt) {
@@ -299,21 +307,23 @@ void update_misc(struct pt *pt) {
             power_off();
         }
 
+        #ifdef DURIN1
         uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
         float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
         new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
         // printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
         durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
 
-        if (power_off_when && esp_timer_get_time() > power_off_when) {
-            printf("power off in\n");
-            vTaskDelay(100);
-            power_off();
-        }
-
         if (durin.telemetry.battery_voltage < 6.6) {
             printf("no battery\n");
             // vTaskDelay(100);
+            power_off();
+        }
+        #endif
+
+        if (power_off_when && esp_timer_get_time() > power_off_when) {
+            printf("power off in\n");
+            vTaskDelay(100);
             power_off();
         }
 

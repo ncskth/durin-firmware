@@ -152,6 +152,25 @@ void setup(void* arg) {
     printf("init uwb\n");
     init_uwb();
 
+
+    // for (uint8_t i = 0; i < 255l; i++) {
+    //     nbe_i2c_reset(&durin.hw.i2c_tof);
+    //     // uint8_t addr = i2c_first_byte_read(i);
+    //     uint8_t rx = 12;
+    //     nbe_i2c_full_register_read(&durin.hw.i2c_tof, i, 0, NBE_I2C_REGISTER_8, &rx, 1);
+    //     while (nbe_i2c_is_busy(&durin.hw.i2c_tof)) {
+    //         vTaskDelay(1);
+    //     }
+
+    //     if (rx != 0xff) {
+    //         printf("good addres %d\n", i);
+    //     } else {
+    //         printf("bad addres %d\n", i);
+    //     }
+    // }
+    // printf("poop\n");
+    // vTaskDelay(100000);
+
     uint8_t working_tof = 0;
     for (uint8_t i = 0; i < 8; i++) {
         if (durin.info.tof_sensor_alive[i]) {

@@ -20,6 +20,14 @@
 #define DURIN_MAX_WIFI_CONFIGURATIONS 3
 
 // #define CONSOLE_ENABLED
+#define DURIN2
+// #define DURIN1
+
+#ifdef DURIN2
+#ifdef DURIN1
+#error Can't target both durin1 and durin2
+#endif
+#endif
 
 #define CAPN_PACKED 1
 
@@ -45,6 +53,8 @@ struct durin_persistent {
 
 struct durin_telemetry {
     float battery_voltage;
+    float battery_charge_percent;
+    float battery_discharge_rate;
     uint16_t ranging_data[8][8*8];
     int16_t raw_ax, raw_ay, raw_az, raw_gx, raw_gy, raw_gz, raw_mx, raw_my, raw_mz;
     float ax, ay, az, gx, gy, gz, mx, my, mz;

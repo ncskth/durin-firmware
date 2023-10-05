@@ -103,6 +103,7 @@ void init_uwb() {
     dwt_txconfig_t txconfig_options = {
         0x34,       /* PG delay. */
         0xFEFEFEFE, /* TX power. */
+        // 0xFFFFFFFF,
         0x0         /*PG count*/
     };
 
@@ -191,7 +192,7 @@ void uwb_misc_task() {
         };
         send_message_instantly(&poll_msg, sizeof(poll_msg));
         vTaskDelay(100);
-        if (esp_timer_get_time() - last_message_received_at > 90 * 1000) {
+        if (esp_timer_get_time() - last_message_received_at > 900 * 1000) {
             break;
         }
     }
@@ -240,7 +241,7 @@ void uwb_misc_task() {
             };
             send_message_instantly(&msg, sizeof(msg));
             last_poll_sent_at = esp_timer_get_time();
-            vTaskDelay(1);
+            vTaskDelay(SINGLE_BUSY_FOR_MS);
 
             next_poll_index = (next_poll_index + 1) % all_beacon_ids_index;
             if (next_poll_index == 0) {

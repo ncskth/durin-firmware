@@ -48,6 +48,8 @@ parser.add_argument('--spam', action="store_true")
 parser.add_argument('--drive', action="store_true")
 parser.add_argument('--poweroff', action="store_true")
 parser.add_argument('--systeminfo', action="store_true")
+parser.add_argument('--buzzer-on', action="store_true")
+parser.add_argument('--buzzer-off', action="store_true")
 
 args = parser.parse_args()
 
@@ -172,6 +174,22 @@ if args.set_led:
     send_msg(msg)
     wait_ack()
 
+if args.buzzer_on:
+    print("enabling buzzer")
+    msg = schema.DurinBase.new_message()
+    msg.init("setBuzzer")
+    msg.setBuzzer.enabled = True
+    send_msg(msg)
+    wait_ack()
+
+if args.buzzer_off:
+    print("enabling buzzer")
+    msg = schema.DurinBase.new_message()
+    msg.init("setBuzzer")
+    msg.setBuzzer.enabled = False
+    send_msg(msg)
+    wait_ack()
+
 def driver_thread():
     pygame.display.set_mode((250,250)) #it needs a window to work
     pygame.init()
@@ -293,6 +311,7 @@ def get_ip():
         ip = "127.0.0.1"
     finally:
         s.close()
+    print(ip)
     return [int(x) for x in ip.split(".")]
 
 if args.stream:
@@ -304,21 +323,21 @@ if args.stream:
     # # msg.init("setTofResolution").resolution = schema.TofResolutions.resolution8x8rate15Hz
     # msg.init("setTofResolution").resolution = schema.TofResolutions.resolution4x4rate60Hz
     # # send_msg(msg)
-
+    period = 10
     msg = schema.DurinBase.new_message()
-    msg.init("setImuStreamPeriod").periodMs = 1000
+    msg.init("setImuStreamPeriod").periodMs = period
     send_msg(msg)
     msg = schema.DurinBase.new_message()
-    msg.init("setSystemStatusStreamPeriod").periodMs = 1000
+    msg.init("setSystemStatusStreamPeriod").periodMs = period
     send_msg(msg)
     msg = schema.DurinBase.new_message()
-    msg.init("setTofStreamPeriod").periodMs = 1000
+    msg.init("setTofStreamPeriod").periodMs = period
     send_msg(msg)
     msg = schema.DurinBase.new_message()
-    msg.init("setPositionStreamPeriod").periodMs = 1000
+    msg.init("setPositionStreamPeriod").periodMs = period
     send_msg(msg)
     msg = schema.DurinBase.new_message()
-    msg.init("setUwbStreamPeriod").periodMs = 1000
+    msg.init("setUwbStreamPeriod").periodMs = period
     send_msg(msg)
     msg = schema.DurinBase.new_message()
     msg.init("enableStreaming")
@@ -330,6 +349,7 @@ if args.stream:
         msg.enableStreaming.destination.udpOnly.ip = get_ip()
         msg.enableStreaming.destination.udpOnly.port = 1336
         t = Thread(target=stream_wifi_thread)
+        time.sleep(2)
     send_msg(msg)
     # wait_ack()
     t.start()
