@@ -29,6 +29,13 @@
 #endif
 #endif
 
+
+#ifndef DURIN2
+#ifndef DURIN1
+#error Must target either durin1 or durin2
+#endif
+#endif
+
 #define CAPN_PACKED 1
 
 struct distance_measurement {

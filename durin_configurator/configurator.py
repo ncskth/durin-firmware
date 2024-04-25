@@ -139,8 +139,10 @@ if args.type == "wifi":
     s.connect((args.address, 1337))
 
 if args.type == "uart":
-    ser = serial.Serial(args.address, 2e6, rtscts=True)
+    ser = serial.Serial(args.address, 2e6, rtscts=False)
     ser.read_all()
+    ser.rts = False
+
 
 print("connected")
 
@@ -276,8 +278,8 @@ if args.read_logs:
         base = receive_msg()
         if base.which() == "textLogging":
             print(base.textLogging.log, end="")
-        else:
-            print(base)
+        # else:
+            # print(base)
 
 
 

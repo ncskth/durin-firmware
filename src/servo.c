@@ -90,6 +90,9 @@ void update_servo(struct pt *pt) {
             speed4 = 0;
         } else if (durin.control.control_type == DurinBase_setRobotVelocity) {
             float x = durin.control.setRobotVelocity.velocityXMms;
+            #ifdef DURIN2 // oops
+            x = -x;
+            #endif
             float y = durin.control.setRobotVelocity.velocityYMms;
             float angle = atan2f(y, x);
             float magnitude = sqrtf(x*x + y*y);
