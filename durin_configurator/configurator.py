@@ -139,9 +139,8 @@ if args.type == "wifi":
     s.connect((args.address, 1337))
 
 if args.type == "uart":
-    ser = serial.Serial(args.address, 2e6, rtscts=False)
+    ser = serial.Serial(args.address, 2e6, rtscts=True)
     ser.read_all()
-    ser.rts = False
 
 
 print("connected")
