@@ -13,7 +13,7 @@ After=network.target
 #Default: Startup type
 Type=Simple
 
-ExecStart=/home/ncs/durin-firmware/durin_configurator/uart_streamer/run.sh
+ExecStart=bash /home/ncs/durin-firmware/durin_configurator/uart_streamer/run.sh
 
 #Optional: To cleanly end the file on stop use this command. This sends a terminal interrupt command on the executable script
 KillSignal=SIGINT
