@@ -1,0 +1,25 @@
+[Unit]
+#The # is a comment line
+#Documentation https://www.freedesktop.org/software/systemd/man/systemd.service.html
+
+#Place short description here
+Description=UART streamer
+
+#This will not start execution of this file until the network connection is made
+#It can be replaced with other parameters of your choosing
+After=network.target
+
+[Service]
+#Default: Startup type
+Type=Simple
+
+ExecStart=/home/ncs/durin-firmware/durin_configurator/uart_streamer/run.sh
+
+#Optional: To cleanly end the file on stop use this command. This sends a terminal interrupt command on the executable script
+KillSignal=SIGINT
+
+#Automatically restart on kill
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
