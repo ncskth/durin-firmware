@@ -11,7 +11,16 @@
 SemaphoreHandle_t uart_mutex;
 
 // TODO i've added this myself to the driver...
+// esp_err_t uart_get_actual_tx_buffer_free_size(uart_port_t uart_num, size_t *size) {
+//     *size = xRingbufferGetCurFreeSize(p_uart_obj[uart_num]->tx_ring_buf);
+//     return ESP_OK;
+// }
+// add this to ${esp_idf_path}/components/driver/uart.c
+// around line 1387
+
 esp_err_t uart_get_actual_tx_buffer_free_size(uart_port_t uart_num, size_t *size);
+
+
 
 void send_uart(uint8_t *buf, uint16_t len) {
     #ifdef CONSOLE_ENABLED
