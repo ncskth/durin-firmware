@@ -10,16 +10,6 @@
 
 SemaphoreHandle_t uart_mutex;
 
-// TODO i've added this myself to the driver...
-// esp_err_t uart_get_actual_tx_buffer_free_size(uart_port_t uart_num, size_t *size) {
-//     *size = xRingbufferGetCurFreeSize(p_uart_obj[uart_num]->tx_ring_buf);
-//     return ESP_OK;
-// }
-// add this to ${esp_idf_path}/components/driver/uart.c
-// around line 1387
-
-esp_err_t uart_get_actual_tx_buffer_free_size(uart_port_t uart_num, size_t *size);
-
 
 
 void send_uart(uint8_t *buf, uint16_t len) {
@@ -29,17 +19,8 @@ void send_uart(uint8_t *buf, uint16_t len) {
     if (durin.info.ota_in_progress) {
         return;
     }
-    size_t remaining;
-
     xSemaphoreTake(uart_mutex, 10);
-    uart_get_actual_tx_buffer_free_size(UART_USER, &remaining);
-
-    // assume some (a lot) of overhead...
-    if (remaining < (len + 256)) {
-        // it's over
-    } else {
-        uart_write_bytes(UART_USER, buf, len);
-    }
+    uart_write_bytes(UART_USER, buf, len);
 
     xSemaphoreGive(uart_mutex);
 }

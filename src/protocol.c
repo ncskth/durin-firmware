@@ -22,6 +22,11 @@
 
 #define HEADER_BYTE '*'
 
+// change the number of the firmware version when making a new release, so that the dashboard can show the correct version and warn about incompatibilities
+#ifndef FIRMWARE_VERSION_STR
+#define FIRMWARE_VERSION_STR "11"
+#endif
+
 #define fast_acknowledge(response, cs) {\
     struct Acknowledge data;\
     response->acknowledge = new_Acknowledge(cs);\
@@ -608,6 +613,12 @@ void handle_getSystemInfo(GetSystemInfo_ptr msg, struct DurinBase *response, str
 
     data.id = durin_persistent.node_id;
     data.uptimeMs = esp_timer_get_time() / 1000;
+    const char *firmware_version = FIRMWARE_VERSION_STR;
+    data.firmwareVersion = (struct capn_text) {
+        .len = strlen(firmware_version),
+        .str = firmware_version,
+        .seg = NULL,
+    };
 
     response->systemInfo = new_SystemInfo(cs);
     write_SystemInfo(&data, response->systemInfo);

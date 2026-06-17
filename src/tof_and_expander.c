@@ -29,30 +29,6 @@ uint16_t expander_parse(uint8_t *buf);
 
 enum TofResolutions wanted_tof_resolution = 0;
 
-#ifdef DURIN1
-uint8_t tof_position_id_to_hardware_id(uint8_t hw_id) {
-    switch (hw_id) {
-        case 0:
-            return 2;
-        case 1:
-            return 6;
-        case 2:
-            return 7;
-        case 3:
-            return 5;
-        case 4:
-            return 4;
-        case 5:
-            return 3;
-        case 6:
-            return 0;
-        case 7:
-            return 1;
-        default:
-            return -1;
-    }
-}
-#else
 uint8_t tof_position_id_to_hardware_id(uint8_t hw_id) {
     switch (hw_id) {
         case 6:
@@ -75,7 +51,6 @@ uint8_t tof_position_id_to_hardware_id(uint8_t hw_id) {
             return -1;
     }
 }
-#endif
 void set_tof_resolution(enum TofResolutions resolution) {
     wanted_tof_resolution = resolution;
 }
