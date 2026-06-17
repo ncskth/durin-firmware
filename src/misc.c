@@ -118,22 +118,7 @@ void init_misc() {
 
     gpio_set_direction(PIN_BUTTON_IN, GPIO_MODE_INPUT);
 
-    #ifdef DURIN1
-    gpio_set_direction(PIN_VBAT_SENSE_GND, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_VBAT_SENSE_GND, 0);
-
-    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, DEFAULT_VREF, adc_chars);
-    if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-        printf("eFuse Vref\n");
-    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-        printf("Two Point\n");
-    } else {
-        printf("Default\n");
-    }
-    adc1_config_width(ADC_WIDTH_12Bit);
-    adc1_config_channel_atten(CHANNEL_BAT_SENSE, ADC_ATTEN_11db);
-    #endif
+    
 
     // led
     ledc_timer_config_t led_timer_conf_r = {
@@ -231,19 +216,7 @@ void init_misc() {
 
     durin.info.last_message_received = esp_timer_get_time();
 
-    #ifdef DURIN1
-    uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
-    float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
-    new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
-    durin.telemetry.battery_voltage = new_battery_voltage;
 
-    for (uint8_t i = 0; i < 100; i++) {
-        uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
-        float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
-        new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
-        durin.telemetry.battery_voltage = new_battery_voltage * (1 - 0.99) + durin.telemetry.battery_voltage * 0.99;
-    }
-    #endif
 }
 
 void update_misc(struct pt *pt) {
@@ -307,19 +280,7 @@ void update_misc(struct pt *pt) {
             power_off();
         }
 
-        #ifdef DURIN1
-        uint16_t raw_adc = adc1_get_raw(CHANNEL_BAT_SENSE);
-        float new_battery_voltage = esp_adc_cal_raw_to_voltage(raw_adc, adc_chars) / 1000.0;
-        new_battery_voltage = BAT_K * new_battery_voltage + BAT_M;
-        // printf("battery %f %f\n", new_battery_voltage, durin.telemetry.battery_voltage);
-        durin.telemetry.battery_voltage = new_battery_voltage * (1 - VOLT_LP_GAIN) + durin.telemetry.battery_voltage * VOLT_LP_GAIN;
-
-        if (durin.telemetry.battery_voltage < 6.6) {
-            printf("no battery\n");
-            // vTaskDelay(100);
-            power_off();
-        }
-        #endif
+        
 
         if (power_off_when && esp_timer_get_time() > power_off_when) {
             printf("power off in\n");
